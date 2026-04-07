@@ -1,0 +1,192 @@
+"""
+XAI Studio — Preprocessing Pipeline
+=====================================
+Automatic preprocessing: type detection, missing value imputation,
+encoding, scaling, and train/test splitting.
+"""
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
+import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
+from sklearn.model_selection import train_test_split
+
+from config.settings import DEFAULT_TEST_SIZE, DEFAULT_RANDOM_STATE
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class PreprocessingResult:
+    """Container for all preprocessing outputs."""
+
+    X_train: np.ndarray = None
+    X_test: np.ndarray = None
+    y_train: np.ndarray = None
+    y_test: np.ndarray = None
+    feature_names: list[str] = field(default_factory=list)
+    target_name: str = ""
+    task_type: str = ""  # "classification" or "regression"
+    label_encoder: LabelEncoder | None = None
+    encoders: dict[str, Any] = field(default_factory=dict)
+    scaler: StandardScaler | None = None
+    summary: dict = field(default_factory=dict)
+
+
+def _detect_task_type(y: pd.Series) -> str:
+    """Determine if the target column represents a classification or regression task."""
+    if y.dtype == "object" or y.dtype.name == "category":
+        return "classification"
+    n_unique = y.nunique()
+    if n_unique <= 20 and n_unique / len(y) < 0.05:
+        return "classification"
+    return "regression"
+
+
+def preprocess_data(
+    df: pd.DataFrame,
+    target_column: str,
+    test_size: float = DEFAULT_TEST_SIZE,
+    random_state: int = DEFAULT_RANDOM_STATE,
+) -> PreprocessingResult:
+    """
+    Run the full preprocessing pipeline on a DataFrame.
+
+    Steps
+    -----
+    1. Separate features (X) and target (y).
+    2. Detect task type (classification / regression).
+    3. Impute missing values (median for numeric, mode for categorical).
+    4. Encode the target if classification (LabelEncoder).
+    5. One-hot encode categorical features.
+    6. Scale numeric features (StandardScaler).
+    7. Split into train / test sets.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The raw DataFrame.
+    target_column : str
+        Name of the target column.
+    test_size : float
+        Proportion of the data reserved for testing.
+    random_state : int
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    PreprocessingResult
+        Dataclass with all the outputs needed for training.
+    """
+    result = PreprocessingResult()
+    result.target_name = target_column
+
+    if target_column not in df.columns:
+        raise ValueError(f"Target column '{target_column}' not found in DataFrame.")
+
+    # ------------------------------------------------------------------
+    # 1. Separate X / y
+    # ------------------------------------------------------------------
+    X = df.drop(columns=[target_column]).copy()
+    y = df[target_column].copy()
+
+    # ------------------------------------------------------------------
+    # 2. Detect task type
+    # ------------------------------------------------------------------
+    result.task_type = _detect_task_type(y)
+    logger.info("Detected task type: %s", result.task_type)
+
+    # ------------------------------------------------------------------
+    # 3. Impute missing values
+    # ------------------------------------------------------------------
+    numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
+    categorical_cols = X.select_dtypes(exclude=[np.number]).columns.tolist()
+
+    if numeric_cols:
+        num_imputer = SimpleImputer(strategy="median")
+        X[numeric_cols] = num_imputer.fit_transform(X[numeric_cols])
+        result.encoders["num_imputer"] = num_imputer
+        logger.info("Imputed %d numeric columns (median strategy)", len(numeric_cols))
+
+    if categorical_cols:
+        cat_imputer = SimpleImputer(strategy="most_frequent")
+        X[categorical_cols] = cat_imputer.fit_transform(X[categorical_cols])
+        result.encoders["cat_imputer"] = cat_imputer
+        logger.info("Imputed %d categorical columns (mode strategy)", len(categorical_cols))
+
+    # Handle missing target values
+    if y.isnull().any():
+        n_missing = y.isnull().sum()
+        mask = y.notnull()
+        X = X[mask]
+        y = y[mask]
+        logger.warning("Dropped %d rows with missing target values", n_missing)
+
+    # ------------------------------------------------------------------
+    # 4. Encode target (classification only)
+    # ------------------------------------------------------------------
+    if result.task_type == "classification":
+        le = LabelEncoder()
+        y = pd.Series(le.fit_transform(y.astype(str)), name=target_column)
+        result.label_encoder = le
+        logger.info(
+            "Encoded target: %d classes → %s",
+            len(le.classes_), list(le.classes_),
+        )
+
+    # ------------------------------------------------------------------
+    # 5. One-hot encode categorical features
+    # ------------------------------------------------------------------
+    if categorical_cols:
+        ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+        encoded = ohe.fit_transform(X[categorical_cols])
+        ohe_feature_names = ohe.get_feature_names_out(categorical_cols).tolist()
+        encoded_df = pd.DataFrame(encoded, columns=ohe_feature_names, index=X.index)
+
+        X = X.drop(columns=categorical_cols)
+        X = pd.concat([X, encoded_df], axis=1)
+        result.encoders["one_hot_encoder"] = ohe
+        logger.info(
+            "One-hot encoded %d categorical columns → %d new features",
+            len(categorical_cols), len(ohe_feature_names),
+        )
+
+    # ------------------------------------------------------------------
+    # 6. Scale numeric features
+    # ------------------------------------------------------------------
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    result.scaler = scaler
+    result.feature_names = X.columns.tolist()
+    logger.info("Scaled %d features with StandardScaler", X_scaled.shape[1])
+
+    # ------------------------------------------------------------------
+    # 7. Train / test split
+    # ------------------------------------------------------------------
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y.values, test_size=test_size, random_state=random_state,
+    )
+    result.X_train = X_train
+    result.X_test = X_test
+    result.y_train = y_train
+    result.y_test = y_test
+
+    result.summary = {
+        "original_shape": df.shape,
+        "features_count": len(result.feature_names),
+        "numeric_original": len(numeric_cols),
+        "categorical_original": len(categorical_cols),
+        "train_size": len(X_train),
+        "test_size": len(X_test),
+        "task_type": result.task_type,
+    }
+
+    logger.info(
+        "Preprocessing complete — train: %d, test: %d, features: %d",
+        len(X_train), len(X_test), len(result.feature_names),
+    )
+    return result

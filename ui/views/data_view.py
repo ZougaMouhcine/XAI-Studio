@@ -1,0 +1,159 @@
+"""
+XAI Studio — Data View (v2 — Dashboard Design)
+=================================================
+Load CSV, preview data, and display summary stats in dashboard cards.
+"""
+
+import os
+import tkinter as tk
+from tkinter import ttk
+
+from ui.widgets import C, F, Card, MetricTile, ModernButton, SectionHeader, StyledTreeview
+from ui.components.dialogs import ask_open_csv, show_error
+from services.pipeline_service import PipelineService
+
+
+class DataView(ttk.Frame):
+    """Dashboard-style data exploration view."""
+
+    def __init__(self, parent):
+        super().__init__(parent, style="TFrame")
+        self._service = PipelineService()
+        self._build()
+
+    def _build(self):
+        # Scrollable container
+        canvas = tk.Canvas(self, bg=C.BG_MAIN, highlightthickness=0, bd=0)
+        scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        self._scroll_frame = tk.Frame(canvas, bg=C.BG_MAIN)
+        self._scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=self._scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Bind mousewheel
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+
+        content = self._scroll_frame
+        pad_x = 28
+
+        # ── Header ───────────────────────────────────────────────
+        header_row = tk.Frame(content, bg=C.BG_MAIN)
+        header_row.pack(fill="x", padx=pad_x, pady=(24, 0))
+
+        SectionHeader(header_row, icon="📂", title="Données",
+                      subtitle="Chargez et explorez votre dataset CSV").pack(side="left")
+
+        ModernButton(header_row, text="Charger un CSV", icon="📁",
+                     style="primary", command=self._on_load,
+                     bg=C.BG_MAIN).pack(side="right", pady=6)
+
+        # ── File info card ────────────────────────────────────────
+        self._info_card = Card(content, accent_color=C.ACCENT, pad=14)
+        self._info_card.pack(fill="x", padx=pad_x, pady=(16, 0))
+
+        self._file_icon = tk.Label(self._info_card.inner, text="📄", font=F.ICON_M,
+                                    bg=C.BG_CARD, fg=C.TEXT_MUTED)
+        self._file_icon.pack(side="left", padx=(0, 12))
+
+        self._info_text = tk.Frame(self._info_card.inner, bg=C.BG_CARD)
+        self._info_text.pack(side="left", fill="x", expand=True)
+
+        self._info_name = tk.Label(self._info_text, text="Aucun fichier chargé",
+                                    font=F.H4, bg=C.BG_CARD, fg=C.TEXT_SEC)
+        self._info_name.pack(anchor="w")
+        self._info_detail = tk.Label(self._info_text, text="Utilisez le bouton ci-dessus pour charger un CSV",
+                                      font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_MUTED)
+        self._info_detail.pack(anchor="w")
+
+        # ── Metrics row ──────────────────────────────────────────
+        self._metrics_frame = tk.Frame(content, bg=C.BG_MAIN)
+        self._metrics_frame.pack(fill="x", padx=pad_x, pady=(16, 0))
+
+        # Placeholder tiles
+        placeholders = [
+            ("", "—", "Lignes", C.ACCENT),
+            ("", "—", "Colonnes", C.INFO),
+            ("", "—", "Numériques", C.SUCCESS),
+            ("", "—", "Catégorielles", C.WARNING),
+            ("", "—", "Val. manquantes", C.DANGER),
+        ]
+        self._tiles = []
+        for icon, val, lbl, color in placeholders:
+            tile = MetricTile(self._metrics_frame, icon=icon, value=val, label=lbl, color=color)
+            tile.pack(side="left", fill="x", expand=True, padx=(0, 8))
+            self._tiles.append(tile)
+
+        # ── Table section ────────────────────────────────────────
+        table_header = tk.Frame(content, bg=C.BG_MAIN)
+        table_header.pack(fill="x", padx=pad_x, pady=(20, 0))
+
+        tk.Label(table_header, text="Aperçu des données", font=F.H2,
+                 bg=C.BG_MAIN, fg=C.TEXT).pack(side="left")
+        self._rows_label = tk.Label(table_header, text="",
+                                     font=F.SMALL, bg=C.BG_MAIN, fg=C.TEXT_MUTED)
+        self._rows_label.pack(side="right")
+
+        self._table_container = tk.Frame(content, bg=C.BG_MAIN)
+        self._table_container.pack(fill="both", expand=True, padx=pad_x, pady=(8, 24))
+
+        # Empty-state message
+        self._empty = tk.Label(self._table_container,
+                                text="Les données apparaîtront ici après chargement",
+                                font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT_DIM)
+        self._empty.pack(pady=40)
+
+    # ──────────────────────────────────────────────────────────────
+    def _on_load(self):
+        filepath = ask_open_csv()
+        if not filepath:
+            return
+        try:
+            df = self._service.load_data(filepath)
+        except Exception as exc:
+            show_error("Erreur de chargement", str(exc))
+            return
+
+        self._update_info(filepath, df)
+        self._update_metrics()
+        self._update_table(df)
+
+    def _update_info(self, filepath, df):
+        name = os.path.basename(filepath)
+        n, c = df.shape
+        target = self._service.target_column or "—"
+        self._info_name.configure(text=name, fg=C.TEXT)
+        self._info_detail.configure(
+            text=f"{n:,} lignes  ×  {c} colonnes   ·   Colonne cible : {target}")
+
+    def _update_metrics(self):
+        s = self._service.get_data_summary()
+        if not s:
+            return
+        data = [
+            str(s["shape"][0]),
+            str(s["shape"][1]),
+            str(len(s["numeric_columns"])),
+            str(len(s["categorical_columns"])),
+            str(sum(s["missing_values"].values())),
+        ]
+        for tile, val in zip(self._tiles, data):
+            tile.set(val)
+
+    def _update_table(self, df):
+        for w in self._table_container.winfo_children():
+            w.destroy()
+
+        cols = list(df.columns)
+        widths = {col: max(len(str(col)) * 10, 80) for col in cols}
+
+        stv = StyledTreeview(self._table_container, columns=cols,
+                              col_widths=widths, height=min(len(df), 18))
+        stv.pack(fill="both", expand=True)
+
+        for _, row in df.head(100).iterrows():
+            stv.tree.insert("", "end", values=[str(v) for v in row])
+
+        self._rows_label.configure(text=f"Affichage : {min(len(df), 100)} / {len(df)} lignes")
