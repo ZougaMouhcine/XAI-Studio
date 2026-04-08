@@ -25,6 +25,10 @@ class Sidebar(tk.Frame):
         ("🚀", "Entraînement",   "training"),
         ("📊", "Évaluation",     "evaluation"),
         ("💾", "Modèles",        "models"),
+        ("📤", "Upload Modèle",  "upload"),
+        ("🔍", "XAI Tools",      "xai"),
+        ("📈", "Visualisations", "visualization"),
+        ("⚖",  "Biais",          "fairness"),
     ]
 
     def __init__(self, parent, on_navigate=None):
@@ -54,7 +58,7 @@ class Sidebar(tk.Frame):
 
         tk.Label(title_col, text="XAI Studio", font=(F.FAM, 15, "bold"),
                  bg=C.BG_SIDEBAR, fg=C.TEXT).pack(anchor="w")
-        tk.Label(title_col, text="ML Core · Phase 1", font=F.TINY,
+        tk.Label(title_col, text="ML Core · Phase 2", font=F.TINY,
                  bg=C.BG_SIDEBAR, fg=C.TEXT_DIM).pack(anchor="w")
 
         # Accent line beneath header
