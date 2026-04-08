@@ -14,6 +14,7 @@ from core.preprocessing import preprocess_data, PreprocessingResult
 from core.training import train_model, train_all_models, get_available_models
 from core.evaluation import evaluate_model, compare_models
 from core.persistence import save_model, load_model, list_saved_models, delete_model
+from core.model_loader import load_model_file, detect_model_info
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -59,6 +60,9 @@ class PipelineService:
         self.trained_models: dict | None = None
         self.evaluation_results: dict | None = None
         self.comparison_df: pd.DataFrame | None = None
+        # Phase 2 — Uploaded model state
+        self.loaded_model = None
+        self.loaded_model_metadata: dict | None = None
         logger.info("Pipeline state reset")
 
     # ------------------------------------------------------------------
@@ -231,3 +235,40 @@ class PipelineService:
     @staticmethod
     def delete_saved_model(filepath: str):
         return delete_model(filepath)
+
+    # ------------------------------------------------------------------
+    # Phase 2: External Model Loading
+    # ------------------------------------------------------------------
+    def load_external_model(self, filepath: str):
+        """Load an external .pkl/.joblib model and store it in state."""
+        model, raw_meta = load_model_file(filepath)
+        self.loaded_model = model
+        self.loaded_model_metadata = detect_model_info(model, raw_meta)
+        logger.info("External model loaded: %s", self.loaded_model_metadata.get("algorithm", "unknown"))
+        return model, self.loaded_model_metadata
+
+    def get_active_model(self):
+        """
+        Return the currently active model for XAI analysis.
+
+        Priority: uploaded model > first successfully trained model.
+
+        Returns
+        -------
+        tuple[model, metadata_dict]
+        """
+        if self.loaded_model is not None:
+            return self.loaded_model, self.loaded_model_metadata or {}
+
+        if self.trained_models:
+            for name, entry in self.trained_models.items():
+                if entry.get("model") is not None:
+                    meta = {
+                        "model_name": name,
+                        "task_type": self.preprocessing_result.task_type if self.preprocessing_result else "unknown",
+                        "feature_names": self.preprocessing_result.feature_names if self.preprocessing_result else [],
+                    }
+                    meta = detect_model_info(entry["model"], meta)
+                    return entry["model"], meta
+
+        return None, {}

@@ -16,6 +16,10 @@ from ui.views.preprocessing_view import PreprocessingView
 from ui.views.training_view import TrainingView
 from ui.views.evaluation_view import EvaluationView
 from ui.views.models_view import ModelsView
+from ui.views.upload_view import UploadView
+from ui.views.xai_view import XAIView
+from ui.views.visualization_view import VisualizationView
+from ui.views.fairness_view import FairnessView
 from utils.logger import set_ui_callback
 from config.settings import APP_NAME, APP_VERSION, WINDOW_WIDTH, WINDOW_HEIGHT, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT
 
@@ -84,6 +88,10 @@ class XAIStudioApp:
             "training": TrainingView,
             "evaluation": EvaluationView,
             "models": ModelsView,
+            "upload": UploadView,
+            "xai": XAIView,
+            "visualization": VisualizationView,
+            "fairness": FairnessView,
         }
         for name, cls in view_classes.items():
             self._views[name] = cls(self._content)
