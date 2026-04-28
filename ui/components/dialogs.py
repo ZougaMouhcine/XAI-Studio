@@ -112,15 +112,26 @@ class ProgressDialog(tk.Toplevel):
 
         # Detail
         self._detail = tk.Label(inner, text=f"0 / {total}",
-                                 font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_MUTED)
+                     font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_MUTED)
         self._detail.pack(anchor="w")
+
+        # ETA and Resource usage
+        self._eta = tk.Label(inner, text="ETA: —", font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_MUTED)
+        self._eta.pack(anchor="w", pady=(6, 0))
+
+        self._resources = tk.Label(inner, text="CPU: —  MEM: —", font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_MUTED)
+        self._resources.pack(anchor="w", pady=(2, 0))
 
         self.update_idletasks()
 
-    def update_progress(self, current: int, detail: str = ""):
+    def update_progress(self, current: int, detail: str = "", eta: str | None = None, resources: str | None = None):
         self._progress["value"] = current
         self._label.configure(text=detail)
         self._detail.configure(text=f"{current} / {self._total}")
+        if eta is not None:
+            self._eta.configure(text=f"ETA: {eta}")
+        if resources is not None:
+            self._resources.configure(text=resources)
         self.update_idletasks()
 
     def close(self):

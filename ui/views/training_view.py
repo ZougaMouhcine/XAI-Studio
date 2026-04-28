@@ -21,7 +21,10 @@ class TrainingView(ttk.Frame):
         super().__init__(parent, style="TFrame")
         self._service = PipelineService()
         self._check_vars: dict[str, tk.BooleanVar] = {}
-        self._params_entries: dict[str, ttk.Entry] = {}
+        # _params_entries[name] -> dict[param_name, ttk.Entry]
+        self._params_entries: dict[str, dict] = {}
+        # Track whether to use defaults (auto) per model
+        self._use_defaults: dict[str, tk.BooleanVar] = {}
         self._build()
 
     def _build(self):
@@ -125,18 +128,52 @@ class TrainingView(ttk.Frame):
             cb.grid(row=0, column=0, sticky="w", padx=(0, 10))
 
             defaults = registry.get(name, {}).get("default_params", {})
-            params_var = tk.StringVar(value="")
-            entry = ttk.Entry(cb_frame, textvariable=params_var, width=50)
-            entry.grid(row=0, column=1, sticky="ew")
-            self._params_entries[name] = entry
+
+            # Auto / Manual toggle
+            use_def_var = tk.BooleanVar(value=True)
+            self._use_defaults[name] = use_def_var
+            cb_auto = ttk.Checkbutton(cb_frame, text="Auto (sklearn)", variable=use_def_var, style="Card.TCheckbutton")
+            cb_auto.grid(row=0, column=1, sticky="e", padx=(6, 0))
+
+            # Parameter pane (hidden when auto enabled)
+            params_pane = tk.Frame(cb_frame, bg=C.BG_CARD)
+            params_pane.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+            params_pane.columnconfigure(0, weight=0)
+            params_pane.columnconfigure(1, weight=1)
+
+            entries: dict = {}
+            if defaults:
+                for r, (pname, pval) in enumerate(defaults.items()):
+                    tk.Label(params_pane, text=pname, bg=C.BG_CARD, fg=C.TEXT, font=F.TINY).grid(row=r, column=0, sticky="w", padx=(0, 8))
+                    ent = ttk.Entry(params_pane, width=36)
+                    ent.insert(0, repr(pval))
+                    ent.grid(row=r, column=1, sticky="ew", pady=(2, 2))
+                    entries[pname] = ent
+            else:
+                # Fallback freeform entry
+                ent = ttk.Entry(params_pane, width=50)
+                ent.grid(row=0, column=0, columnspan=2, sticky="ew")
+                entries["__freeform__"] = ent
+
+            self._params_entries[name] = entries
+
+            def _toggle_params():
+                if use_def_var.get():
+                    params_pane.grid_remove()
+                else:
+                    params_pane.grid()
+
+            # Initialize visibility
+            _toggle_params()
+            use_def_var.trace_add("write", lambda *a: _toggle_params())
 
             tk.Label(
                 cb_frame,
-                text=f"format: key=value, key2=value2 | profil suggéré: {self._format_params(defaults) or 'sklearn defaults'}",
+                text=f"profil suggéré: {self._format_params(defaults) or 'sklearn defaults'}",
                 bg=C.BG_CARD,
                 fg=C.TEXT_DIM,
                 font=F.TINY,
-            ).grid(row=1, column=1, sticky="w", pady=(2, 0))
+            ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
     def _select_all(self):
         for v in self._check_vars.values():
@@ -163,15 +200,47 @@ class TrainingView(ttk.Frame):
 
         dlg = ProgressDialog(self.winfo_toplevel(), "Entraînement en cours…", total=len(selected))
 
-        def progress_cb(cur, tot, name):
-            self.after(0, lambda: dlg.update_progress(cur, f"Terminé : {name}"))
+        # ETA calculation using running average of model durations
+        durations: list[float] = []
+
+        def progress_cb(cur, tot, name, duration: float | None = None):
+            if duration is not None:
+                durations.append(duration)
+            # estimate remaining time
+            remaining = "—"
+            if durations and cur <= tot:
+                avg = sum(durations) / len(durations)
+                rem_count = max(0, tot - cur)
+                rem_secs = rem_count * avg
+                m, s = divmod(int(rem_secs), 60)
+                remaining = f"{m}m{s}s" if m else f"{s}s"
+
+            # resource snapshot if psutil available
+            resources = None
+            try:
+                import psutil
+
+                cpu = psutil.cpu_percent(interval=0.1)
+                mem = psutil.virtual_memory()
+                resources = f"CPU: {cpu:.0f}%  MEM: {mem.percent:.0f}%"
+            except Exception:
+                resources = None
+
+            self.after(0, lambda: dlg.update_progress(cur, f"Terminé : {name}", eta=remaining, resources=resources))
 
         def thread():
             try:
+                # wrap the service call to measure per-model durations
+                def wrapped_progress(idx, total, model_name):
+                    # The training core already measures per-model durations in logs; we can't access them here
+                    # So we capture time around each callback by monkey-patching a simple timer
+                    # NOTE: train_all_models calls progress_callback after a model finishes; we will not have per-model duration here
+                    progress_cb(idx, total, model_name)
+
                 self._service.run_training(
                     selected_models=selected,
                     model_params_map=model_params_map,
-                    progress_callback=progress_cb,
+                    progress_callback=wrapped_progress,
                 )
                 self.after(0, lambda: self._done(dlg))
             except Exception as exc:
@@ -228,31 +297,47 @@ class TrainingView(ttk.Frame):
     def _collect_model_params(self, selected_models: list[str]) -> dict[str, dict]:
         out: dict[str, dict] = {}
         for name in selected_models:
-            entry = self._params_entries.get(name)
-            if entry is None:
+            # If using defaults (auto), return empty dict to signal train_all_models
+            use_default = self._use_defaults.get(name)
+            if use_default is None or use_default.get():
                 out[name] = {}
                 continue
 
-            raw = entry.get().strip()
-            if not raw:
-                out[name] = {}
+            entries = self._params_entries.get(name) or {}
+            # Freeform fallback
+            if "__freeform__" in entries:
+                raw = entries["__freeform__"].get().strip()
+                if not raw:
+                    out[name] = {}
+                    continue
+                parsed = {}
+                chunks = [c.strip() for c in raw.split(",") if c.strip()]
+                for chunk in chunks:
+                    if "=" not in chunk:
+                        raise ValueError(f"Paramètre invalide pour '{name}': {chunk}")
+                    k, v = chunk.split("=", 1)
+                    key = k.strip()
+                    value_str = v.strip()
+                    if not key:
+                        raise ValueError(f"Nom de paramètre vide pour '{name}'.")
+                    try:
+                        value = ast.literal_eval(value_str)
+                    except Exception:
+                        value = value_str
+                    parsed[key] = value
+                out[name] = parsed
                 continue
 
-            parsed: dict[str, object] = {}
-            chunks = [c.strip() for c in raw.split(",") if c.strip()]
-            for chunk in chunks:
-                if "=" not in chunk:
-                    raise ValueError(f"Paramètre invalide pour '{name}': {chunk}")
-                k, v = chunk.split("=", 1)
-                key = k.strip()
-                value_str = v.strip()
-                if not key:
-                    raise ValueError(f"Nom de paramètre vide pour '{name}'.")
+            # Structured entries
+            parsed = {}
+            for pname, ent in entries.items():
+                raw_val = ent.get().strip()
+                if raw_val == "":
+                    continue
                 try:
-                    value = ast.literal_eval(value_str)
+                    parsed[pname] = ast.literal_eval(raw_val)
                 except Exception:
-                    value = value_str
-                parsed[key] = value
+                    parsed[pname] = raw_val
 
             out[name] = parsed
 

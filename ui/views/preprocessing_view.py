@@ -86,6 +86,9 @@ class PreprocessingView(ttk.Frame):
         self._on_category_change()
 
     def _build_controls(self, parent):
+        # Layout: label / input pairs across columns 0..7. Reserve column 7 for right-aligned actions.
+        for i in range(8):
+            parent.columnconfigure(i, weight=0)
         parent.columnconfigure(7, weight=1)
 
         tk.Label(parent, text="Cible", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=0, sticky="w")
@@ -96,9 +99,9 @@ class PreprocessingView(ttk.Frame):
         ttk.Entry(parent, textvariable=self._test_size_var, width=self._field_width).grid(row=0, column=3, padx=(8, 16), sticky="w")
 
         tk.Label(parent, text="Random state", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=4, sticky="w")
-        ttk.Entry(parent, textvariable=self._random_state_var, width=self._field_width).grid(row=0, column=5, padx=(8, 16), sticky="w")
+        ttk.Entry(parent, textvariable=self._random_state_var, width=self._field_width).grid(row=0, column=5, padx=(8, 8), sticky="w")
 
-        ModernButton(parent, text="Préparer entraînement", style="primary", command=self._prepare_training, bg=C.BG_CARD).grid(row=0, column=6, sticky="e")
+        ModernButton(parent, text="Préparer entraînement", style="primary", command=self._prepare_training, bg=C.BG_CARD).grid(row=0, column=7, sticky="e")
 
         tk.Label(parent, text="Catégorie", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=1, column=0, sticky="w", pady=(14, 0))
         cat_combo = ttk.Combobox(parent, textvariable=self._category_var, width=self._field_width, state="readonly", values=list(self._catalog.keys()))
@@ -111,7 +114,8 @@ class PreprocessingView(ttk.Frame):
 
         tk.Label(parent, text="Colonnes", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=2, column=0, sticky="nw", pady=(14, 0))
         self._columns_list = tk.Listbox(parent, selectmode="extended", height=5, exportselection=False, width=self._field_width)
-        self._columns_list.grid(row=2, column=1, columnspan=2, sticky="ew", pady=(14, 0), padx=(8, 16))
+        # Keep the columns listbox the same character width as other fields (no extra columnspan)
+        self._columns_list.grid(row=2, column=1, columnspan=1, sticky="w", pady=(14, 0), padx=(8, 16))
         tk.Label(
             parent,
             text="Sélection multiple autorisée: Ctrl / Shift",

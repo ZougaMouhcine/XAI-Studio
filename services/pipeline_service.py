@@ -15,6 +15,8 @@ from core.data_loader import load_tabular, get_summary, detect_target_column
 from core.preprocessing import preprocess_data, PreprocessingResult
 from core.preprocessing_module import PreprocessingWorkspace, StepSpec, prettify_pipeline_help
 from core.training import train_model, train_all_models, get_available_models
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+import random
 from core.evaluation import evaluate_model, compare_models
 from core.persistence import save_model, load_model, list_saved_models, delete_model
 from core.model_loader import load_model_file, detect_model_info
@@ -242,6 +244,68 @@ class PipelineService:
         self.comparison_df = None
 
         return self.trained_models
+
+    def run_automl(
+        self,
+        candidate_models: list[str] | None = None,
+        search: str = "grid",
+        param_grids: dict | None = None,
+        n_iter: int = 20,
+        cv: int = 3,
+    ) -> dict:
+        """Run a simple AutoML search across candidate models.
+
+        Returns a dict with keys: best_model, best_score, best_params, model_name
+        """
+        if self.preprocessing_result is None:
+            raise RuntimeError("Data not preprocessed yet.")
+
+        registry = get_available_models(self.preprocessing_result.task_type)
+        names = candidate_models if candidate_models else list(registry.keys())
+        X = self.preprocessing_result.X_train
+        y = self.preprocessing_result.y_train
+
+        best_overall = {"score": -float("inf"), "model": None, "params": None, "name": None}
+
+        for name in names:
+            info = registry.get(name)
+            if not info:
+                continue
+            cls_module = info["module"]
+            cls_name = info["class"]
+            module = __import__(cls_module, fromlist=[cls_name])
+            cls = getattr(module, cls_name)
+
+            grid = (param_grids or {}).get(name) or info.get("param_grid") or {}
+
+            if not grid:
+                # If no grid provided, skip complex search and do single fit with defaults
+                model = cls(**info.get("default_params", {}))
+                model.fit(X, y)
+                try:
+                    score = model.score(X, y)
+                except Exception:
+                    score = 0
+                if score > best_overall["score"]:
+                    best_overall.update({"score": score, "model": model, "params": {}, "name": name})
+                continue
+
+            estimator = cls()
+            if search == "random":
+                searcher = RandomizedSearchCV(estimator, grid, n_iter=n_iter, cv=cv, n_jobs=1)
+            else:
+                searcher = GridSearchCV(estimator, grid, cv=cv, n_jobs=1)
+
+            searcher.fit(X, y)
+            if hasattr(searcher, "best_score_") and searcher.best_score_ > best_overall["score"]:
+                best_overall.update({
+                    "score": float(searcher.best_score_),
+                    "model": searcher.best_estimator_,
+                    "params": dict(searcher.best_params_),
+                    "name": name,
+                })
+
+        return best_overall
 
     # ------------------------------------------------------------------
     # Step 4: Evaluation
