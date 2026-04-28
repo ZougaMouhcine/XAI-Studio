@@ -7,7 +7,7 @@ Compare model metrics in a styled dashboard with detail tabs.
 import tkinter as tk
 from tkinter import ttk
 
-from ui.widgets import C, F, Card, MetricTile, ModernButton, SectionHeader, StyledTreeview, LogPanel
+from ui.widgets import C, F, Card, MetricTile, ModernButton, SectionHeader, StyledTreeview, LogPanel, bind_mousewheel_to
 from ui.components.dialogs import show_error, show_info
 from services.pipeline_service import PipelineService
 
@@ -25,21 +25,22 @@ class EvaluationView(ttk.Frame):
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
         self._scroll = tk.Frame(canvas, bg=C.BG_MAIN)
         self._scroll.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self._scroll, anchor="nw")
+        window_id = canvas.create_window((0, 0), window=self._scroll, anchor="nw")
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window_id, width=e.width))
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+        bind_mousewheel_to(canvas, self._scroll)
 
         ct = self._scroll
-        px = 28
+        px = 24
 
         # Header
         header = tk.Frame(ct, bg=C.BG_MAIN)
         header.pack(fill="x", padx=px, pady=(24, 0))
-        SectionHeader(header, icon="📊", title="Évaluation",
+        SectionHeader(header, icon="", title="Évaluation",
                       subtitle="Comparez les performances de vos modèles").pack(side="left")
-        ModernButton(header, text="Évaluer les modèles", icon="▶",
+        ModernButton(header, text="Évaluer les modèles", icon="",
                      style="primary", command=self._on_evaluate,
                      bg=C.BG_MAIN).pack(side="right", pady=6)
 
@@ -49,7 +50,8 @@ class EvaluationView(ttk.Frame):
 
         tk.Label(self._results_area,
                  text="Entraînez vos modèles puis cliquez sur « Évaluer »",
-                 font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT_DIM).pack(pady=40)
+                 font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT_DIM).pack(pady=24)
+
 
     def on_enter(self):
         if self._service.evaluation_results:
@@ -88,7 +90,7 @@ class EvaluationView(ttk.Frame):
         trophy_row = tk.Frame(trophy.inner, bg=C.BG_CARD)
         trophy_row.pack(fill="x")
 
-        tk.Label(trophy_row, text="🏆", font=(F.FAM, 24),
+        tk.Label(trophy_row, text="TOP", font=(F.FAM, 11, "bold"),
                  bg=C.BG_CARD, fg=C.WARNING).pack(side="left", padx=(0, 12))
 
         trophy_text = tk.Frame(trophy_row, bg=C.BG_CARD)
@@ -108,14 +110,14 @@ class EvaluationView(ttk.Frame):
         primary_val = best.get(primary_key, "—")
         display_val = f"{primary_val:.4f}" if isinstance(primary_val, float) else str(primary_val)
 
-        tk.Label(trophy_row, text=display_val, font=(F.FAM, 28, "bold"),
+        tk.Label(trophy_row, text=display_val, font=(F.FAM, 24, "bold"),
                  bg=C.BG_CARD, fg=C.ACCENT).pack(side="right", padx=(0, 8))
         tk.Label(trophy_row, text=primary_label, font=F.SMALL,
                  bg=C.BG_CARD, fg=C.TEXT_MUTED).pack(side="right", padx=(0, 4))
 
         # ── Comparison table ─────────────────────────────────────
         tk.Label(self._results_area, text="Tableau comparatif", font=F.H2,
-                 bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", pady=(0, 8))
+             bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="center", pady=(0, 16))
 
         cols = list(comparison.columns)
         widths = {c: max(len(c) * 11, 100) for c in cols}
@@ -139,7 +141,7 @@ class EvaluationView(ttk.Frame):
             return
 
         tk.Label(self._results_area, text="Détails par modèle", font=F.H2,
-                 bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", pady=(0, 8))
+             bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="center", pady=(0, 16))
 
         notebook = ttk.Notebook(self._results_area)
         notebook.pack(fill="both", expand=True)
@@ -150,12 +152,12 @@ class EvaluationView(ttk.Frame):
 
             if "error" in metrics:
                 tk.Label(tab, text=f"❌  {metrics['error']}", font=F.H4,
-                         bg=C.BG_MAIN, fg=C.DANGER).pack(padx=20, pady=20)
+                         bg=C.BG_MAIN, fg=C.DANGER).pack(padx=24, pady=24)
                 continue
 
             # Metric tiles
             tiles_row = tk.Frame(tab, bg=C.BG_MAIN)
-            tiles_row.pack(fill="x", padx=12, pady=(12, 0))
+            tiles_row.pack(fill="x", padx=16, pady=(16, 0))
 
             if task_type == "classification":
                 keys = [("Accuracy", "accuracy", C.ACCENT),
@@ -180,7 +182,7 @@ class EvaluationView(ttk.Frame):
                 report = metrics.get("classification_report", "")
 
                 detail_row = tk.Frame(tab, bg=C.BG_MAIN)
-                detail_row.pack(fill="both", expand=True, padx=12, pady=(12, 12))
+                detail_row.pack(fill="both", expand=True, padx=16, pady=(16, 16))
 
                 if cm:
                     cm_str = "\n".join("  ".join(f"{v:>6}" for v in row) for row in cm)

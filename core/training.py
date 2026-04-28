@@ -43,7 +43,7 @@ def _instantiate_model(model_info: dict, custom_params: dict | None = None):
     module = importlib.import_module(model_info["module"])
     cls = getattr(module, model_info["class"])
 
-    params = {**model_info["default_params"]}
+    params = {}
     if custom_params:
         params.update(custom_params)
 
@@ -101,6 +101,7 @@ def train_all_models(
     y_train: np.ndarray,
     task_type: str,
     selected_models: list[str] | None = None,
+    model_params_map: dict[str, dict] | None = None,
     progress_callback=None,
 ) -> dict[str, dict]:
     """
@@ -124,12 +125,14 @@ def train_all_models(
     """
     registry = get_available_models(task_type)
     names = selected_models if selected_models else list(registry.keys())
+    model_params_map = model_params_map or {}
 
     results = {}
     total = len(names)
     for idx, name in enumerate(names, 1):
         try:
-            model, elapsed = train_model(name, X_train, y_train, task_type)
+            custom_params = model_params_map.get(name)
+            model, elapsed = train_model(name, X_train, y_train, task_type, custom_params=custom_params)
             results[name] = {"model": model, "training_time": elapsed}
         except Exception as exc:
             logger.error("Failed to train '%s': %s", name, exc)

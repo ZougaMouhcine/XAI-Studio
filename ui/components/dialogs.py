@@ -10,10 +10,41 @@ from ui.widgets import C, F
 
 
 def ask_open_csv() -> str | None:
-    """Open a file dialog to select a CSV file."""
+    """Open a file dialog to select a CSV/Excel dataset."""
     path = filedialog.askopenfilename(
-        title="Ouvrir un fichier CSV",
-        filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
+        title="Ouvrir un dataset",
+        filetypes=[
+            ("Tabular Files", "*.csv *.xlsx *.xls"),
+            ("CSV Files", "*.csv"),
+            ("Excel Files", "*.xlsx *.xls"),
+            ("All Files", "*.*"),
+        ],
+    )
+    return path if path else None
+
+
+def ask_save_pipeline_file() -> str | None:
+    path = filedialog.asksaveasfilename(
+        title="Sauvegarder le pipeline",
+        defaultextension=".joblib",
+        filetypes=[("Joblib", "*.joblib"), ("All Files", "*.*")],
+    )
+    return path if path else None
+
+
+def ask_open_pipeline_file() -> str | None:
+    path = filedialog.askopenfilename(
+        title="Charger un pipeline",
+        filetypes=[("Joblib", "*.joblib"), ("All Files", "*.*")],
+    )
+    return path if path else None
+
+
+def ask_export_python_file() -> str | None:
+    path = filedialog.asksaveasfilename(
+        title="Exporter le preprocessing Python",
+        defaultextension=".py",
+        filetypes=[("Python", "*.py"), ("All Files", "*.*")],
     )
     return path if path else None
 

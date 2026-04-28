@@ -52,6 +52,7 @@ def preprocess_data(
     target_column: str,
     test_size: float = DEFAULT_TEST_SIZE,
     random_state: int = DEFAULT_RANDOM_STATE,
+    options: dict[str, Any] | None = None,
 ) -> PreprocessingResult:
     """
     Run the full preprocessing pipeline on a DataFrame.
@@ -84,6 +85,18 @@ def preprocess_data(
     """
     result = PreprocessingResult()
     result.target_name = target_column
+    options = options or {}
+
+    apply_imputation = options.get("apply_imputation", True)
+    apply_encoding = options.get("apply_encoding", True)
+    apply_scaling = options.get("apply_scaling", True)
+
+    numeric_impute_strategy = options.get("numeric_impute_strategy", "median")
+    categorical_impute_strategy = options.get("categorical_impute_strategy", "most_frequent")
+    if categorical_impute_strategy == "majority_voting":
+        categorical_impute_strategy = "most_frequent"
+    numeric_fill_value = options.get("numeric_fill_value", 0)
+    categorical_fill_value = options.get("categorical_fill_value", "missing")
 
     if target_column not in df.columns:
         raise ValueError(f"Target column '{target_column}' not found in DataFrame.")
@@ -106,17 +119,24 @@ def preprocess_data(
     numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = X.select_dtypes(exclude=[np.number]).columns.tolist()
 
-    if numeric_cols:
-        num_imputer = SimpleImputer(strategy="median")
-        X[numeric_cols] = num_imputer.fit_transform(X[numeric_cols])
-        result.encoders["num_imputer"] = num_imputer
-        logger.info("Imputed %d numeric columns (median strategy)", len(numeric_cols))
+    if apply_imputation:
+        if numeric_cols:
+            num_kwargs = {"strategy": numeric_impute_strategy}
+            if numeric_impute_strategy == "constant":
+                num_kwargs["fill_value"] = numeric_fill_value
+            num_imputer = SimpleImputer(**num_kwargs)
+            X[numeric_cols] = num_imputer.fit_transform(X[numeric_cols])
+            result.encoders["num_imputer"] = num_imputer
+            logger.info("Imputed %d numeric columns (%s strategy)", len(numeric_cols), numeric_impute_strategy)
 
-    if categorical_cols:
-        cat_imputer = SimpleImputer(strategy="most_frequent")
-        X[categorical_cols] = cat_imputer.fit_transform(X[categorical_cols])
-        result.encoders["cat_imputer"] = cat_imputer
-        logger.info("Imputed %d categorical columns (mode strategy)", len(categorical_cols))
+        if categorical_cols:
+            cat_kwargs = {"strategy": categorical_impute_strategy}
+            if categorical_impute_strategy == "constant":
+                cat_kwargs["fill_value"] = categorical_fill_value
+            cat_imputer = SimpleImputer(**cat_kwargs)
+            X[categorical_cols] = cat_imputer.fit_transform(X[categorical_cols])
+            result.encoders["cat_imputer"] = cat_imputer
+            logger.info("Imputed %d categorical columns (%s strategy)", len(categorical_cols), categorical_impute_strategy)
 
     # Handle missing target values
     if y.isnull().any():
@@ -141,7 +161,7 @@ def preprocess_data(
     # ------------------------------------------------------------------
     # 5. One-hot encode categorical features
     # ------------------------------------------------------------------
-    if categorical_cols:
+    if categorical_cols and apply_encoding:
         ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
         encoded = ohe.fit_transform(X[categorical_cols])
         ohe_feature_names = ohe.get_feature_names_out(categorical_cols).tolist()
@@ -154,15 +174,23 @@ def preprocess_data(
             "One-hot encoded %d categorical columns → %d new features",
             len(categorical_cols), len(ohe_feature_names),
         )
+    elif categorical_cols and not apply_encoding:
+        raise ValueError(
+            "Des colonnes catégorielles existent. Activez l'encodage ou supprimez les colonnes catégorielles."
+        )
 
     # ------------------------------------------------------------------
     # 6. Scale numeric features
     # ------------------------------------------------------------------
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    result.scaler = scaler
+    if apply_scaling:
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        result.scaler = scaler
+        logger.info("Scaled %d features with StandardScaler", X_scaled.shape[1])
+    else:
+        X_scaled = X.values
+        logger.info("Skipped feature scaling")
     result.feature_names = X.columns.tolist()
-    logger.info("Scaled %d features with StandardScaler", X_scaled.shape[1])
 
     # ------------------------------------------------------------------
     # 7. Train / test split
@@ -183,6 +211,13 @@ def preprocess_data(
         "train_size": len(X_train),
         "test_size": len(X_test),
         "task_type": result.task_type,
+        "options": {
+            "apply_imputation": apply_imputation,
+            "apply_encoding": apply_encoding,
+            "apply_scaling": apply_scaling,
+            "numeric_impute_strategy": numeric_impute_strategy,
+            "categorical_impute_strategy": categorical_impute_strategy,
+        },
     }
 
     logger.info(

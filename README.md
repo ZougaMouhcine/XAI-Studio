@@ -11,6 +11,7 @@ XAI Studio est une application desktop Python/Tkinter qui constitue le noyau ML 
 - **Entraînement multi-modèles** (6 classifieurs + 6 régresseurs scikit-learn)
 - **Évaluation des performances** avec tableau comparatif
 - **Sauvegarde / chargement** de modèles en `.pkl`
+- **UI professionnelle light-first** avec bascule instantanée vers le mode sombre
 
 ## 🏗 Architecture
 

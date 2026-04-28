@@ -7,7 +7,7 @@ Manage saved models with a polished card-based layout.
 import tkinter as tk
 from tkinter import ttk
 
-from ui.widgets import C, F, Card, ModernButton, SectionHeader, StyledTreeview, Badge
+from ui.widgets import C, F, Card, ModernButton, SectionHeader, StyledTreeview, Badge, bind_mousewheel_to
 from ui.components.dialogs import show_error, show_info, ask_confirm
 from services.pipeline_service import PipelineService
 
@@ -25,27 +25,28 @@ class ModelsView(ttk.Frame):
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
         self._scroll = tk.Frame(canvas, bg=C.BG_MAIN)
         self._scroll.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self._scroll, anchor="nw")
+        window_id = canvas.create_window((0, 0), window=self._scroll, anchor="nw")
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window_id, width=e.width))
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+        bind_mousewheel_to(canvas, self._scroll)
 
         ct = self._scroll
-        px = 28
+        px = 24
 
         # ── Header ───────────────────────────────────────────────
         header = tk.Frame(ct, bg=C.BG_MAIN)
         header.pack(fill="x", padx=px, pady=(24, 0))
-        SectionHeader(header, icon="💾", title="Modèles",
+        SectionHeader(header, icon="", title="Modèles",
                       subtitle="Sauvegardez, chargez et gérez vos modèles entraînés").pack(side="left")
 
         btn_row = tk.Frame(header, bg=C.BG_MAIN)
         btn_row.pack(side="right")
-        ModernButton(btn_row, text="Sauvegarder tout", icon="💾",
+        ModernButton(btn_row, text="Sauvegarder tout", icon="",
                      style="primary", command=self._on_save_all,
                      bg=C.BG_MAIN).pack(side="left", padx=(0, 8), pady=6)
-        ModernButton(btn_row, text="Rafraîchir", icon="🔄",
+        ModernButton(btn_row, text="Rafraîchir", icon="",
                      style="secondary", command=self._refresh,
                      bg=C.BG_MAIN).pack(side="left", pady=6)
 
@@ -61,10 +62,10 @@ class ModelsView(ttk.Frame):
 
         # ── Saved models table ───────────────────────────────────
         tk.Label(ct, text="Modèles sur disque", font=F.H2,
-                 bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(20, 8))
+                 bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(16, 16))
 
         self._table_container = tk.Frame(ct, bg=C.BG_MAIN)
-        self._table_container.pack(fill="both", expand=True, padx=px, pady=(0, 8))
+        self._table_container.pack(fill="both", expand=True, padx=px, pady=(0, 16))
 
         cols = ("Fichier", "Classe", "Tâche", "Cible", "Taille (KB)", "Date")
         widths = {"Fichier": 220, "Classe": 180, "Tâche": 100,
@@ -75,9 +76,9 @@ class ModelsView(ttk.Frame):
 
         # Action bar
         actions = tk.Frame(ct, bg=C.BG_MAIN)
-        actions.pack(fill="x", padx=px, pady=(8, 24))
+        actions.pack(fill="x", padx=px, pady=(16, 24))
 
-        ModernButton(actions, text="Supprimer le modèle sélectionné", icon="🗑",
+        ModernButton(actions, text="Supprimer le modèle sélectionné", icon="",
                      style="danger", command=self._on_delete,
                      bg=C.BG_MAIN).pack(side="right")
 

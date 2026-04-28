@@ -1,8 +1,7 @@
 """
-XAI Studio — UI Theme (v2 — Modern Analytics Dashboard)
-=========================================================
-Professional dark theme with full ttk style overrides.
-Designed to feel like a premium AI / data science desktop tool.
+XAI Studio — UI Theme
+======================
+Professional ttk theme for both light and dark modes.
 """
 
 import tkinter as tk
@@ -11,7 +10,7 @@ from ui.widgets import C, F
 
 
 def apply_theme(root: tk.Tk):
-    """Apply the analytics-dashboard theme to the entire application."""
+    """Apply ttk styles based on the currently active color palette."""
     root.configure(bg=C.BG_ROOT)
 
     style = ttk.Style(root)
@@ -50,44 +49,54 @@ def apply_theme(root: tk.Tk):
 
     # ── Buttons ───────────────────────────────────────────────────────
     style.configure("TButton",
-                     background=C.BG_SURFACE, foreground=C.TEXT,
-                     font=F.H4, padding=(18, 9), borderwidth=0, relief="flat")
+                background=C.BG_MAIN, foreground=C.TEXT,
+                font=F.H4, padding=(16, 8), borderwidth=1,
+                bordercolor=C.BORDER_LIGHT, relief="flat")
     style.map("TButton",
-              background=[("active", C.BG_HOVER), ("disabled", C.BG_CARD)],
+            background=[("active", C.BUTTON_SECONDARY_BG_HOVER), ("disabled", C.BG_MAIN)],
+            bordercolor=[("active", C.BORDER_LIGHT), ("disabled", C.BORDER)],
               foreground=[("disabled", C.TEXT_DIM)])
 
     style.configure("Accent.TButton",
                      background=C.ACCENT, foreground="#ffffff",
-                     font=F.H4, padding=(22, 10))
+                font=F.H4, padding=(16, 8), borderwidth=0, relief="flat")
     style.map("Accent.TButton",
-              background=[("active", C.ACCENT_LIGHT), ("disabled", C.BG_SURFACE)],
+            background=[("active", C.ACCENT_LIGHT), ("disabled", C.BORDER_LIGHT)],
               foreground=[("disabled", C.TEXT_DIM)])
 
     style.configure("Danger.TButton",
-                     background=C.DANGER_DIM, foreground="#fca5a5",
-                     font=F.H4, padding=(18, 9))
+                background=C.BG_MAIN, foreground=C.DANGER,
+                font=F.H4, padding=(16, 8), borderwidth=1,
+                bordercolor=C.DANGER, relief="flat")
     style.map("Danger.TButton",
-              background=[("active", C.DANGER)])
+            background=[("active", C.BUTTON_DANGER_BG_HOVER), ("disabled", C.BG_MAIN)],
+            bordercolor=[("active", C.DANGER), ("disabled", C.BORDER)],
+            foreground=[("disabled", C.TEXT_DIM)])
 
     style.configure("Small.TButton",
                      padding=(12, 6), font=F.SMALL,
-                     background=C.BG_SURFACE)
+                background=C.BG_MAIN)
     style.map("Small.TButton",
-              background=[("active", C.BG_HOVER)])
+            background=[("active", C.BUTTON_SECONDARY_BG_HOVER)])
 
     # ── Entry ─────────────────────────────────────────────────────────
     style.configure("TEntry",
                      fieldbackground=C.BG_INPUT, foreground=C.TEXT,
                      insertcolor=C.ACCENT, padding=8, font=F.BODY,
-                     borderwidth=1, relief="flat")
+                borderwidth=1, relief="flat", bordercolor=C.INPUT_BORDER)
+    style.map("TEntry",
+            fieldbackground=[("focus", C.BG_INPUT)],
+            bordercolor=[("focus", C.INPUT_FOCUS)],
+              foreground=[("disabled", C.TEXT_DIM)])
 
     # ── Combobox ──────────────────────────────────────────────────────
     style.configure("TCombobox",
-                     fieldbackground=C.BG_INPUT, background=C.BG_SURFACE,
+                fieldbackground=C.BG_INPUT, background=C.BG_INPUT,
                      foreground=C.TEXT, padding=8, font=F.BODY,
-                     arrowcolor=C.TEXT_SEC, borderwidth=1)
+                arrowcolor=C.TEXT_SEC, borderwidth=1, bordercolor=C.INPUT_BORDER)
     style.map("TCombobox",
-              fieldbackground=[("readonly", C.BG_INPUT)],
+            fieldbackground=[("readonly", C.BG_INPUT), ("focus", C.BG_INPUT)],
+            bordercolor=[("focus", C.INPUT_FOCUS), ("readonly", C.INPUT_BORDER)],
               foreground=[("readonly", C.TEXT)])
 
     # ── Treeview ──────────────────────────────────────────────────────
@@ -96,11 +105,11 @@ def apply_theme(root: tk.Tk):
                      fieldbackground=C.TREE_BG, font=F.SMALL,
                      rowheight=32, borderwidth=0)
     style.configure("Treeview.Heading",
-                     background=C.BG_CARD, foreground=C.TEXT_SEC,
+                     background=C.BG_CARD_ALT, foreground=C.TEXT_SEC,
                      font=F.H4, borderwidth=0, relief="flat")
     style.map("Treeview",
               background=[("selected", C.TREE_SELECT)],
-              foreground=[("selected", "#ffffff")])
+              foreground=[("selected", C.TEXT)])
     style.map("Treeview.Heading",
               background=[("active", C.BG_HOVER)])
 
@@ -123,7 +132,7 @@ def apply_theme(root: tk.Tk):
     # ── Labelframe ────────────────────────────────────────────────────
     style.configure("TLabelframe",
                      background=C.BG_MAIN, foreground=C.TEXT,
-                     bordercolor=C.BORDER)
+                     bordercolor=C.BORDER, borderwidth=1)
     style.configure("TLabelframe.Label",
                      background=C.BG_MAIN, foreground=C.ACCENT, font=F.H3)
 
@@ -143,8 +152,14 @@ def apply_theme(root: tk.Tk):
     # ── Notebook ──────────────────────────────────────────────────────
     style.configure("TNotebook", background=C.BG_MAIN, borderwidth=0)
     style.configure("TNotebook.Tab",
-                     background=C.BG_CARD, foreground=C.TEXT_MUTED,
+                background=C.BG_CARD_ALT, foreground=C.TEXT_MUTED,
                      padding=(16, 8), font=F.H4)
     style.map("TNotebook.Tab",
-              background=[("selected", C.BG_MAIN)],
+            background=[("selected", C.BG_CARD)],
               foreground=[("selected", C.ACCENT)])
+
+    # Shared option database values for native tk widgets
+    root.option_add("*Background", C.BG_MAIN)
+    root.option_add("*Foreground", C.TEXT)
+    root.option_add("*selectBackground", C.TREE_SELECT)
+    root.option_add("*selectForeground", C.TEXT)

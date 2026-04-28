@@ -8,7 +8,7 @@ import os
 import tkinter as tk
 from tkinter import ttk
 
-from ui.widgets import C, F, Card, MetricTile, ModernButton, SectionHeader, StyledTreeview
+from ui.widgets import C, F, Card, MetricTile, ModernButton, SectionHeader, StyledTreeview, bind_mousewheel_to
 from ui.components.dialogs import ask_open_csv, show_error
 from services.pipeline_service import PipelineService
 
@@ -19,6 +19,7 @@ class DataView(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent, style="TFrame")
         self._service = PipelineService()
+        self._has_header_var = tk.BooleanVar(value=True)
         self._build()
 
     def _build(self):
@@ -27,46 +28,60 @@ class DataView(ttk.Frame):
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
         self._scroll_frame = tk.Frame(canvas, bg=C.BG_MAIN)
         self._scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self._scroll_frame, anchor="nw")
+        window_id = canvas.create_window((0, 0), window=self._scroll_frame, anchor="nw")
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window_id, width=e.width))
         canvas.configure(yscrollcommand=scrollbar.set)
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Bind mousewheel
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+        bind_mousewheel_to(canvas, self._scroll_frame)
 
         content = self._scroll_frame
-        pad_x = 28
+        pad_x = 24
 
         # ── Header ───────────────────────────────────────────────
         header_row = tk.Frame(content, bg=C.BG_MAIN)
         header_row.pack(fill="x", padx=pad_x, pady=(24, 0))
 
-        SectionHeader(header_row, icon="📂", title="Données",
+        SectionHeader(header_row, icon="", title="Données",
                       subtitle="Chargez et explorez votre dataset CSV").pack(side="left")
 
-        ModernButton(header_row, text="Charger un CSV", icon="📁",
-                     style="primary", command=self._on_load,
-                     bg=C.BG_MAIN).pack(side="right", pady=6)
+        controls = tk.Frame(header_row, bg=C.BG_MAIN)
+        controls.pack(side="right")
+
+        ttk.Checkbutton(
+            controls,
+            text="Première ligne = titres colonnes",
+            variable=self._has_header_var,
+        ).pack(side="left", padx=(0, 12), pady=6)
+
+        ModernButton(
+            controls,
+            text="Charger un CSV",
+            icon="",
+            style="primary",
+            command=self._on_load,
+            bg=C.BG_MAIN,
+        ).pack(side="left")
 
         # ── File info card ────────────────────────────────────────
-        self._info_card = Card(content, accent_color=C.ACCENT, pad=14)
+        self._info_card = Card(content, accent_color=C.ACCENT, pad=16)
         self._info_card.pack(fill="x", padx=pad_x, pady=(16, 0))
 
-        self._file_icon = tk.Label(self._info_card.inner, text="📄", font=F.ICON_M,
-                                    bg=C.BG_CARD, fg=C.TEXT_MUTED)
-        self._file_icon.pack(side="left", padx=(0, 12))
+        self._file_icon = tk.Label(self._info_card.inner, text="CSV", font=F.H4,
+                        bg=C.BG_CARD, fg=C.ACCENT)
+        self._file_icon.pack(anchor="center", pady=(0, 8))
 
         self._info_text = tk.Frame(self._info_card.inner, bg=C.BG_CARD)
-        self._info_text.pack(side="left", fill="x", expand=True)
+        self._info_text.pack(fill="x", expand=True)
 
         self._info_name = tk.Label(self._info_text, text="Aucun fichier chargé",
-                                    font=F.H4, bg=C.BG_CARD, fg=C.TEXT_SEC)
-        self._info_name.pack(anchor="w")
+                        font=F.H4, bg=C.BG_CARD, fg=C.TEXT_SEC)
+        self._info_name.pack(anchor="center")
         self._info_detail = tk.Label(self._info_text, text="Utilisez le bouton ci-dessus pour charger un CSV",
                                       font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_MUTED)
-        self._info_detail.pack(anchor="w")
+        self._info_detail.pack(anchor="center")
 
         # ── Metrics row ──────────────────────────────────────────
         self._metrics_frame = tk.Frame(content, bg=C.BG_MAIN)
@@ -88,7 +103,7 @@ class DataView(ttk.Frame):
 
         # ── Table section ────────────────────────────────────────
         table_header = tk.Frame(content, bg=C.BG_MAIN)
-        table_header.pack(fill="x", padx=pad_x, pady=(20, 0))
+        table_header.pack(fill="x", padx=pad_x, pady=(16, 0))
 
         tk.Label(table_header, text="Aperçu des données", font=F.H2,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(side="left")
@@ -97,13 +112,13 @@ class DataView(ttk.Frame):
         self._rows_label.pack(side="right")
 
         self._table_container = tk.Frame(content, bg=C.BG_MAIN)
-        self._table_container.pack(fill="both", expand=True, padx=pad_x, pady=(8, 24))
+        self._table_container.pack(fill="both", expand=True, padx=pad_x, pady=(16, 24))
 
         # Empty-state message
         self._empty = tk.Label(self._table_container,
                                 text="Les données apparaîtront ici après chargement",
                                 font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT_DIM)
-        self._empty.pack(pady=40)
+        self._empty.pack(pady=24)
 
     # ──────────────────────────────────────────────────────────────
     def _on_load(self):
@@ -111,7 +126,7 @@ class DataView(ttk.Frame):
         if not filepath:
             return
         try:
-            df = self._service.load_data(filepath)
+            df = self._service.load_data(filepath, has_header=self._has_header_var.get())
         except Exception as exc:
             show_error("Erreur de chargement", str(exc))
             return
@@ -125,8 +140,9 @@ class DataView(ttk.Frame):
         n, c = df.shape
         target = self._service.target_column or "—"
         self._info_name.configure(text=name, fg=C.TEXT)
+        header_mode = "avec titres" if self._has_header_var.get() else "sans titres"
         self._info_detail.configure(
-            text=f"{n:,} lignes  ×  {c} colonnes   ·   Colonne cible : {target}")
+            text=f"{n:,} lignes  ×  {c} colonnes   ·   {header_mode}   ·   Cible : {target}")
 
     def _update_metrics(self):
         s = self._service.get_data_summary()

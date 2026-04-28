@@ -13,7 +13,7 @@ from config.settings import SUPPORTED_ENCODINGS, MAX_PREVIEW_ROWS
 logger = get_logger(__name__)
 
 
-def load_csv(filepath: str) -> pd.DataFrame:
+def load_csv(filepath: str, has_header: bool = True) -> pd.DataFrame:
     """
     Load a CSV file into a pandas DataFrame.
 
@@ -46,14 +46,16 @@ def load_csv(filepath: str) -> pd.DataFrame:
     last_error = None
     for encoding in SUPPORTED_ENCODINGS:
         try:
-            df = pd.read_csv(filepath, encoding=encoding)
+            df = pd.read_csv(filepath, encoding=encoding, header=0 if has_header else None)
+            if not has_header:
+                df.columns = [f"col_{i + 1}" for i in range(df.shape[1])]
             if df.empty:
                 raise ValueError("The CSV file is empty (no rows).")
             if df.columns.size == 0:
                 raise ValueError("The CSV file has no columns.")
             logger.info(
-                "Loaded '%s' (%d rows × %d cols, encoding=%s)",
-                os.path.basename(filepath), len(df), len(df.columns), encoding,
+                "Loaded '%s' (%d rows × %d cols, encoding=%s, has_header=%s)",
+                os.path.basename(filepath), len(df), len(df.columns), encoding, has_header,
             )
             return df
         except UnicodeDecodeError as exc:
@@ -66,6 +68,22 @@ def load_csv(filepath: str) -> pd.DataFrame:
         f"Could not decode file with any supported encoding "
         f"({', '.join(SUPPORTED_ENCODINGS)}). Last error: {last_error}"
     )
+
+
+def load_tabular(filepath: str, has_header: bool = True) -> pd.DataFrame:
+    """Load CSV or Excel into a DataFrame."""
+    lower = filepath.lower()
+    if lower.endswith(".csv"):
+        return load_csv(filepath, has_header=has_header)
+    if lower.endswith(".xlsx") or lower.endswith(".xls"):
+        header = 0 if has_header else None
+        df = pd.read_excel(filepath, header=header)
+        if not has_header:
+            df.columns = [f"col_{i + 1}" for i in range(df.shape[1])]
+        if df.empty:
+            raise ValueError("The spreadsheet is empty.")
+        return df
+    raise ValueError("Unsupported file type. Please use CSV or Excel (.xlsx/.xls).")
 
 
 def get_summary(df: pd.DataFrame) -> dict:

@@ -4,11 +4,12 @@ XAI Studio — Training View (v2 — Dashboard Design)
 Select and train ML models with progress feedback and results table.
 """
 
+import ast
 import threading
 import tkinter as tk
 from tkinter import ttk
 
-from ui.widgets import C, F, Card, ModernButton, SectionHeader, StyledTreeview, Badge
+from ui.widgets import C, F, Card, ModernButton, SectionHeader, StyledTreeview, Badge, bind_mousewheel_to
 from ui.components.dialogs import show_error, show_info, ProgressDialog
 from services.pipeline_service import PipelineService
 
@@ -20,6 +21,7 @@ class TrainingView(ttk.Frame):
         super().__init__(parent, style="TFrame")
         self._service = PipelineService()
         self._check_vars: dict[str, tk.BooleanVar] = {}
+        self._params_entries: dict[str, ttk.Entry] = {}
         self._build()
 
     def _build(self):
@@ -27,27 +29,28 @@ class TrainingView(ttk.Frame):
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
         self._scroll = tk.Frame(canvas, bg=C.BG_MAIN)
         self._scroll.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self._scroll, anchor="nw")
+        window_id = canvas.create_window((0, 0), window=self._scroll, anchor="nw")
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window_id, width=e.width))
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+        bind_mousewheel_to(canvas, self._scroll)
 
         ct = self._scroll
-        px = 28
+        px = 24
 
         # ── Header ───────────────────────────────────────────────
         header = tk.Frame(ct, bg=C.BG_MAIN)
         header.pack(fill="x", padx=px, pady=(24, 0))
-        SectionHeader(header, icon="🚀", title="Entraînement",
+        SectionHeader(header, icon="", title="Entraînement",
                       subtitle="Sélectionnez les modèles et lancez l'entraînement").pack(side="left")
 
         # ── Model selection card ──────────────────────────────────
-        self._sel_card = Card(ct, accent_color=C.INFO, pad=20)
+        self._sel_card = Card(ct, accent_color=C.INFO, pad=16)
         self._sel_card.pack(fill="x", padx=px, pady=(16, 0))
 
         top = tk.Frame(self._sel_card.inner, bg=C.BG_CARD)
-        top.pack(fill="x", pady=(0, 12))
+        top.pack(fill="x", pady=(0, 16))
 
         tk.Label(top, text="Modèles disponibles", font=F.H3,
                  bg=C.BG_CARD, fg=C.TEXT).pack(side="left")
@@ -72,7 +75,7 @@ class TrainingView(ttk.Frame):
                      command=self._select_all, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
         ModernButton(btn_row, text="Tout désélectionner", style="ghost",
                      command=self._deselect_all, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(btn_row, text="Entraîner les modèles", icon="▶",
+        ModernButton(btn_row, text="Entraîner les modèles", icon="",
                      style="primary", command=self._on_train,
                      bg=C.BG_CARD).pack(side="right")
 
@@ -89,6 +92,7 @@ class TrainingView(ttk.Frame):
         for w in self._task_badge_frame.winfo_children():
             w.destroy()
         self._check_vars.clear()
+        self._params_entries.clear()
 
         if not model_names:
             tk.Label(self._checks_frame,
@@ -100,22 +104,39 @@ class TrainingView(ttk.Frame):
         Badge(self._task_badge_frame, text=task.upper(),
               color=C.ACCENT).pack(side="left")
 
-        # Model checkboxes (3 columns)
+        # Model checkboxes + params (2 columns)
         grid = tk.Frame(self._checks_frame, bg=C.BG_CARD)
         grid.pack(fill="x")
 
-        n_cols = 3
+        registry = self._service.get_model_registry()
+        n_cols = 2
         for idx, name in enumerate(model_names):
             var = tk.BooleanVar(value=True)
             self._check_vars[name] = var
 
             cb_frame = tk.Frame(grid, bg=C.BG_CARD)
             cb_frame.grid(row=idx // n_cols, column=idx % n_cols,
-                          sticky="w", padx=(0, 20), pady=4)
+                          sticky="ew", padx=(0, 20), pady=8)
+
+            cb_frame.columnconfigure(1, weight=1)
 
             cb = ttk.Checkbutton(cb_frame, text=name, variable=var,
                                   style="Card.TCheckbutton")
-            cb.pack(side="left")
+            cb.grid(row=0, column=0, sticky="w", padx=(0, 10))
+
+            defaults = registry.get(name, {}).get("default_params", {})
+            params_var = tk.StringVar(value="")
+            entry = ttk.Entry(cb_frame, textvariable=params_var, width=50)
+            entry.grid(row=0, column=1, sticky="ew")
+            self._params_entries[name] = entry
+
+            tk.Label(
+                cb_frame,
+                text=f"format: key=value, key2=value2 | profil suggéré: {self._format_params(defaults) or 'sklearn defaults'}",
+                bg=C.BG_CARD,
+                fg=C.TEXT_DIM,
+                font=F.TINY,
+            ).grid(row=1, column=1, sticky="w", pady=(2, 0))
 
     def _select_all(self):
         for v in self._check_vars.values():
@@ -134,6 +155,12 @@ class TrainingView(ttk.Frame):
             show_error("Erreur", "Effectuez le préprocessing d'abord.")
             return
 
+        try:
+            model_params_map = self._collect_model_params(selected)
+        except ValueError as exc:
+            show_error("Erreur paramètres", str(exc))
+            return
+
         dlg = ProgressDialog(self.winfo_toplevel(), "Entraînement en cours…", total=len(selected))
 
         def progress_cb(cur, tot, name):
@@ -141,7 +168,11 @@ class TrainingView(ttk.Frame):
 
         def thread():
             try:
-                self._service.run_training(selected_models=selected, progress_callback=progress_cb)
+                self._service.run_training(
+                    selected_models=selected,
+                    model_params_map=model_params_map,
+                    progress_callback=progress_cb,
+                )
                 self.after(0, lambda: self._done(dlg))
             except Exception as exc:
                 self.after(0, lambda: self._fail(dlg, exc))
@@ -166,7 +197,7 @@ class TrainingView(ttk.Frame):
             return
 
         tk.Label(self._results_area, text="Résultats de l'entraînement", font=F.H2,
-                 bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", pady=(0, 12))
+                 bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="center", pady=(0, 16))
 
         cols = ("Modèle", "Statut", "Temps (s)", "Classe")
         widths = {"Modèle": 200, "Statut": 100, "Temps (s)": 100, "Classe": 280}
@@ -184,5 +215,45 @@ class TrainingView(ttk.Frame):
 
         ok_count = sum(1 for e in models.values() if e.get("model"))
         tk.Label(self._results_area,
-                 text=f"✅  {ok_count}/{len(models)} modèles entraînés avec succès",
-                 font=F.H4, bg=C.BG_MAIN, fg=C.SUCCESS).pack(anchor="w", pady=(12, 0))
+                 text=f"{ok_count}/{len(models)} modèles entraînés avec succès",
+                 font=F.H4, bg=C.BG_MAIN, fg=C.ACCENT).pack(anchor="center", pady=(16, 0))
+
+    @staticmethod
+    def _format_params(params: dict) -> str:
+        if not params:
+            return ""
+        parts = [f"{k}={repr(v)}" for k, v in params.items()]
+        return ", ".join(parts)
+
+    def _collect_model_params(self, selected_models: list[str]) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for name in selected_models:
+            entry = self._params_entries.get(name)
+            if entry is None:
+                out[name] = {}
+                continue
+
+            raw = entry.get().strip()
+            if not raw:
+                out[name] = {}
+                continue
+
+            parsed: dict[str, object] = {}
+            chunks = [c.strip() for c in raw.split(",") if c.strip()]
+            for chunk in chunks:
+                if "=" not in chunk:
+                    raise ValueError(f"Paramètre invalide pour '{name}': {chunk}")
+                k, v = chunk.split("=", 1)
+                key = k.strip()
+                value_str = v.strip()
+                if not key:
+                    raise ValueError(f"Nom de paramètre vide pour '{name}'.")
+                try:
+                    value = ast.literal_eval(value_str)
+                except Exception:
+                    value = value_str
+                parsed[key] = value
+
+            out[name] = parsed
+
+        return out

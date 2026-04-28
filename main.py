@@ -14,12 +14,20 @@ import os
 # Ensure the project root is on sys.path so that all packages resolve correctly.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from ui.display import enable_windows_dpi_awareness
+
+enable_windows_dpi_awareness()
+
 from ui.app import XAIStudioApp
 
 
 def main():
-    app = XAIStudioApp()
-    app.run()
+    try:
+        app = XAIStudioApp()
+        app.run()
+    except KeyboardInterrupt:
+        # Graceful exit when the app is interrupted from terminal (Ctrl+C).
+        pass
 
 
 if __name__ == "__main__":

@@ -6,11 +6,14 @@ all core operations.  The UI calls *only* this service — never
 the core modules directly.
 """
 
+from dataclasses import asdict
+
 import pandas as pd
 import numpy as np
 
-from core.data_loader import load_csv, get_summary, detect_target_column
+from core.data_loader import load_tabular, get_summary, detect_target_column
 from core.preprocessing import preprocess_data, PreprocessingResult
+from core.preprocessing_module import PreprocessingWorkspace, StepSpec, prettify_pipeline_help
 from core.training import train_model, train_all_models, get_available_models
 from core.evaluation import evaluate_model, compare_models
 from core.persistence import save_model, load_model, list_saved_models, delete_model
@@ -57,6 +60,7 @@ class PipelineService:
         self.filepath: str | None = None
         self.target_column: str | None = None
         self.preprocessing_result: PreprocessingResult | None = None
+        self.preprocessing_workspace = PreprocessingWorkspace()
         self.trained_models: dict | None = None
         self.evaluation_results: dict | None = None
         self.comparison_df: pd.DataFrame | None = None
@@ -68,12 +72,13 @@ class PipelineService:
     # ------------------------------------------------------------------
     # Step 1: Data Loading
     # ------------------------------------------------------------------
-    def load_data(self, filepath: str) -> pd.DataFrame:
+    def load_data(self, filepath: str, has_header: bool = True) -> pd.DataFrame:
         """Load a CSV file and compute its summary."""
         self.filepath = filepath
-        self.dataframe = load_csv(filepath)
+        self.dataframe = load_tabular(filepath, has_header=has_header)
         self.data_summary = get_summary(self.dataframe)
         self.target_column = detect_target_column(self.dataframe)
+        self.preprocessing_workspace.reset(self.dataframe)
 
         # Clear downstream state
         self.preprocessing_result = None
@@ -85,6 +90,80 @@ class PipelineService:
 
     def get_data_summary(self) -> dict | None:
         return self.data_summary
+
+    def get_preprocessing_workspace(self) -> PreprocessingWorkspace:
+        return self.preprocessing_workspace
+
+    def get_preprocessing_catalog(self) -> dict:
+        return self.preprocessing_workspace.CATALOG
+
+    def get_preprocessing_help(self) -> str:
+        return prettify_pipeline_help()
+
+    def add_preprocessing_step(self, category: str, method: str, columns: list[str], options: dict):
+        self.preprocessing_workspace.add_step(StepSpec(category=category, method=method, columns=columns, options=options))
+
+    def remove_preprocessing_step(self, index: int):
+        self.preprocessing_workspace.remove_step(index)
+
+    def move_preprocessing_step(self, index: int, direction: str):
+        self.preprocessing_workspace.move_step(index, direction)
+
+    def run_preprocessing_step(self, category: str, method: str, columns: list[str], options: dict) -> dict:
+        out = self.preprocessing_workspace.run_step(StepSpec(category=category, method=method, columns=columns, options=options))
+        if out.ok:
+            self.dataframe = self.preprocessing_workspace.current_df.copy(deep=True)
+            self.data_summary = get_summary(self.dataframe)
+        return {"ok": out.ok, "message": out.message, "details": out.details}
+
+    def run_preprocessing_pipeline_advanced(self) -> list[dict]:
+        outcomes = self.preprocessing_workspace.run_pipeline()
+        if outcomes:
+            self.dataframe = self.preprocessing_workspace.current_df.copy(deep=True)
+            self.data_summary = get_summary(self.dataframe)
+            if self.target_column not in self.dataframe.columns:
+                self.target_column = detect_target_column(self.dataframe)
+        return [{"ok": o.ok, "message": o.message, "details": o.details} for o in outcomes]
+
+    def preprocessing_undo(self) -> bool:
+        ok = self.preprocessing_workspace.undo()
+        if ok:
+            self.dataframe = self.preprocessing_workspace.current_df.copy(deep=True)
+            self.data_summary = get_summary(self.dataframe)
+        return ok
+
+    def preprocessing_redo(self) -> bool:
+        ok = self.preprocessing_workspace.redo()
+        if ok:
+            self.dataframe = self.preprocessing_workspace.current_df.copy(deep=True)
+            self.data_summary = get_summary(self.dataframe)
+        return ok
+
+    def save_preprocessing_pipeline(self, filepath: str):
+        self.preprocessing_workspace.save_pipeline(filepath)
+
+    def load_preprocessing_pipeline(self, filepath: str):
+        self.preprocessing_workspace.load_pipeline(filepath)
+
+    def export_preprocessing_pipeline_code(self, filepath: str):
+        self.preprocessing_workspace.export_pipeline_code(filepath)
+
+    def get_preprocessing_recommendations(self) -> list[str]:
+        return self.preprocessing_workspace.recommend_steps(self.target_column)
+
+    def get_preprocessing_issues(self) -> dict:
+        return self.preprocessing_workspace.dataset_issues()
+
+    def get_preprocessing_pipeline(self) -> list[dict]:
+        return [asdict(s) for s in self.preprocessing_workspace.pipeline]
+
+    def get_preprocessing_logs(self) -> list[str]:
+        return self.preprocessing_workspace.operation_log
+
+    def get_current_dataframe_preview(self, n: int = 100) -> pd.DataFrame:
+        if self.preprocessing_workspace.current_df is None:
+            return pd.DataFrame()
+        return self.preprocessing_workspace.current_df.head(n)
 
     def get_columns(self) -> list[str]:
         if self.dataframe is not None:
@@ -99,7 +178,10 @@ class PipelineService:
     # Step 2: Preprocessing
     # ------------------------------------------------------------------
     def run_preprocessing(
-        self, test_size: float = 0.2, random_state: int = 42
+        self,
+        test_size: float = 0.2,
+        random_state: int = 42,
+        options: dict | None = None,
     ) -> PreprocessingResult:
         """Run the preprocessing pipeline on the loaded data."""
         if self.dataframe is None:
@@ -112,6 +194,7 @@ class PipelineService:
             target_column=self.target_column,
             test_size=test_size,
             random_state=random_state,
+            options=options,
         )
 
         # Clear downstream
@@ -130,9 +213,16 @@ class PipelineService:
             return []
         return list(get_available_models(self.preprocessing_result.task_type).keys())
 
+    def get_model_registry(self) -> dict:
+        """Return model metadata registry for current task type."""
+        if self.preprocessing_result is None:
+            return {}
+        return get_available_models(self.preprocessing_result.task_type)
+
     def run_training(
         self,
         selected_models: list[str] | None = None,
+        model_params_map: dict[str, dict] | None = None,
         progress_callback=None,
     ) -> dict:
         """Train models on the preprocessed data."""
@@ -143,6 +233,7 @@ class PipelineService:
         self.trained_models = train_all_models(
             pr.X_train, pr.y_train, pr.task_type,
             selected_models=selected_models,
+            model_params_map=model_params_map,
             progress_callback=progress_callback,
         )
 
