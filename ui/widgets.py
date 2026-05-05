@@ -477,7 +477,7 @@ class Badge(tk.Frame):
 class StyledTreeview(tk.Frame):
     """A Treeview wrapped in a frame with scrollbars and modern colours."""
 
-    def __init__(self, parent, columns, col_widths=None, height=10, **kw):
+    def __init__(self, parent, columns, col_widths=None, height=10, selectmode="browse", **kw):
         bg = kw.pop("bg", C.BG_MAIN)
         super().__init__(parent, bg=bg)
 
@@ -499,8 +499,14 @@ class StyledTreeview(tk.Frame):
         container = tk.Frame(self, bg=C.BORDER, padx=1, pady=1)
         container.pack(fill="both", expand=True)
 
-        self.tree = ttk.Treeview(container, columns=columns, show="headings",
-                                  height=height, style=style_name, selectmode="browse")
+        self.tree = ttk.Treeview(
+            container,
+            columns=columns,
+            show="headings",
+            height=height,
+            style=style_name,
+            selectmode=selectmode,
+        )
         vsb = ttk.Scrollbar(container, orient="vertical", command=self.tree.yview)
         hsb = ttk.Scrollbar(container, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)

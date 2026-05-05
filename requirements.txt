@@ -17,3 +17,6 @@ optuna>=3.5
 tensorflow>=2.15
 psutil>=5.9
 gputil>=1.4
+plotly>=5.18
+kaleido>=0.2
+pillow>=10.0

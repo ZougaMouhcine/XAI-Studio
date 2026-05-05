@@ -35,6 +35,8 @@ PLOT_STYLE = {
     "grid.alpha": 0.4,
     "legend.facecolor": C.BG_CARD,
     "legend.edgecolor": C.BORDER,
+    "legend.labelcolor": C.TEXT,
+    "legend.framealpha": 0.85,
     "legend.fontsize": 9,
     "font.size": 10,
 }
@@ -67,11 +69,12 @@ class PlotCanvas(tk.Frame):
         canvas.update_figure(fig)
     """
 
-    def __init__(self, parent, bg=C.BG_MAIN, show_toolbar=False):
+    def __init__(self, parent, bg=C.BG_MAIN, show_toolbar=False, auto_size=True):
         super().__init__(parent, bg=bg)
 
         self._bg = bg
         self._show_toolbar = show_toolbar
+        self._auto_size = auto_size
         self._figure = None
         self._canvas_widget = None
         self._toolbar = None
@@ -92,6 +95,14 @@ class PlotCanvas(tk.Frame):
         widget = self._canvas_widget.get_tk_widget()
         widget.configure(bg=self._bg, highlightthickness=0)
         widget.pack(fill="both", expand=True)
+
+        if self._auto_size:
+            pad_y = 24
+            width_px, height_px = fig.get_size_inches() * fig.dpi
+            widget.configure(width=int(width_px), height=int(height_px))
+            widget.pack_configure(pady=(pad_y, pad_y))
+            self.configure(height=int(height_px + (pad_y * 2)))
+            self.pack_propagate(False)
 
         if self._show_toolbar:
             self._toolbar = NavigationToolbar2Tk(self._canvas_widget, self)
