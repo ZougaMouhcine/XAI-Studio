@@ -10,13 +10,22 @@ from typing import Any
 
 import numpy as np
 
-from config.settings import CLASSIFICATION_MODELS, REGRESSION_MODELS
+from config.settings import CLASSIFICATION_MODELS, REGRESSION_MODELS, CLUSTERING_MODELS
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def get_available_models(task_type: str) -> dict:
+def _is_model_available(model_info: dict) -> bool:
+    try:
+        module = importlib.import_module(model_info["module"])
+        _ = getattr(module, model_info["class"])
+        return True
+    except Exception:
+        return False
+
+
+def get_available_models(task_type: str, include_unavailable: bool = False) -> dict:
     """
     Return the registry of supported models for the given task type.
 
@@ -31,11 +40,20 @@ def get_available_models(task_type: str) -> dict:
         Model name → {module, class, default_params}.
     """
     if task_type == "classification":
-        return CLASSIFICATION_MODELS
+        registry = CLASSIFICATION_MODELS
     elif task_type == "regression":
-        return REGRESSION_MODELS
+        registry = REGRESSION_MODELS
+    elif task_type == "clustering":
+        registry = CLUSTERING_MODELS
     else:
-        raise ValueError(f"Unknown task type: '{task_type}'. Expected 'classification' or 'regression'.")
+        raise ValueError(
+            f"Unknown task type: '{task_type}'. Expected 'classification', 'regression', or 'clustering'."
+        )
+
+    if include_unavailable:
+        return registry
+
+    return {name: info for name, info in registry.items() if _is_model_available(info)}
 
 
 def _instantiate_model(model_info: dict, custom_params: dict | None = None):
@@ -89,7 +107,10 @@ def train_model(
 
     logger.info("Training '%s' (%s)…", name, model_info["class"])
     start = time.perf_counter()
-    model.fit(X_train, y_train)
+    if task_type == "clustering":
+        model.fit(X_train)
+    else:
+        model.fit(X_train, y_train)
     elapsed = time.perf_counter() - start
     logger.info("'%s' trained in %.3f s", name, elapsed)
 
@@ -139,7 +160,7 @@ def train_all_models(
             results[name] = {"model": None, "training_time": 0, "error": str(exc)}
 
         if progress_callback:
-            progress_callback(idx, total, name)
+            progress_callback(idx, total, name, elapsed)
 
     logger.info("Training complete — %d/%d models succeeded", 
                 sum(1 for v in results.values() if v["model"] is not None), total)

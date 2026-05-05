@@ -120,6 +120,16 @@ class DataView(ttk.Frame):
                                 font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT_DIM)
         self._empty.pack(pady=24)
 
+        nav_row = tk.Frame(content, bg=C.BG_MAIN)
+        nav_row.pack(anchor="e", padx=pad_x, pady=(0, 16))
+        ModernButton(
+            nav_row,
+            text="Passer au préprocessing",
+            style="primary",
+            command=lambda: self._navigate_to("preprocessing"),
+            bg=C.BG_MAIN,
+        ).pack(side="right")
+
     # ──────────────────────────────────────────────────────────────
     def _on_load(self):
         filepath = ask_open_csv()
@@ -173,3 +183,9 @@ class DataView(ttk.Frame):
             stv.tree.insert("", "end", values=[str(v) for v in row])
 
         self._rows_label.configure(text=f"Affichage : {min(len(df), 100)} / {len(df)} lignes")
+
+    def _navigate_to(self, view_name: str) -> None:
+        root = self.winfo_toplevel()
+        navigate = getattr(root, "navigate_to", None)
+        if callable(navigate):
+            navigate(view_name)

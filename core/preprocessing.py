@@ -49,7 +49,7 @@ def _detect_task_type(y: pd.Series) -> str:
 
 def preprocess_data(
     df: pd.DataFrame,
-    target_column: str,
+    target_column: str | None,
     test_size: float = DEFAULT_TEST_SIZE,
     random_state: int = DEFAULT_RANDOM_STATE,
     options: dict[str, Any] | None = None,
@@ -84,7 +84,7 @@ def preprocess_data(
         Dataclass with all the outputs needed for training.
     """
     result = PreprocessingResult()
-    result.target_name = target_column
+    result.target_name = target_column or ""
     options = options or {}
 
     apply_imputation = options.get("apply_imputation", True)
@@ -98,19 +98,26 @@ def preprocess_data(
     numeric_fill_value = options.get("numeric_fill_value", 0)
     categorical_fill_value = options.get("categorical_fill_value", "missing")
 
-    if target_column not in df.columns:
+    if target_column and target_column not in df.columns:
         raise ValueError(f"Target column '{target_column}' not found in DataFrame.")
 
     # ------------------------------------------------------------------
     # 1. Separate X / y
     # ------------------------------------------------------------------
-    X = df.drop(columns=[target_column]).copy()
-    y = df[target_column].copy()
+    if target_column:
+        X = df.drop(columns=[target_column]).copy()
+        y = df[target_column].copy()
+    else:
+        X = df.copy()
+        y = None
 
     # ------------------------------------------------------------------
     # 2. Detect task type
     # ------------------------------------------------------------------
-    result.task_type = _detect_task_type(y)
+    if y is None:
+        result.task_type = "clustering"
+    else:
+        result.task_type = _detect_task_type(y)
     logger.info("Detected task type: %s", result.task_type)
 
     # ------------------------------------------------------------------
@@ -139,7 +146,7 @@ def preprocess_data(
             logger.info("Imputed %d categorical columns (%s strategy)", len(categorical_cols), categorical_impute_strategy)
 
     # Handle missing target values
-    if y.isnull().any():
+    if y is not None and y.isnull().any():
         n_missing = y.isnull().sum()
         mask = y.notnull()
         X = X[mask]
@@ -195,21 +202,27 @@ def preprocess_data(
     # ------------------------------------------------------------------
     # 7. Train / test split
     # ------------------------------------------------------------------
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y.values, test_size=test_size, random_state=random_state,
-    )
-    result.X_train = X_train
-    result.X_test = X_test
-    result.y_train = y_train
-    result.y_test = y_test
+    if result.task_type == "clustering":
+        result.X_train = X_scaled
+        result.X_test = X_scaled
+        result.y_train = None
+        result.y_test = None
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_scaled, y.values, test_size=test_size, random_state=random_state,
+        )
+        result.X_train = X_train
+        result.X_test = X_test
+        result.y_train = y_train
+        result.y_test = y_test
 
     result.summary = {
         "original_shape": df.shape,
         "features_count": len(result.feature_names),
         "numeric_original": len(numeric_cols),
         "categorical_original": len(categorical_cols),
-        "train_size": len(X_train),
-        "test_size": len(X_test),
+        "train_size": len(result.X_train),
+        "test_size": len(result.X_test),
         "task_type": result.task_type,
         "options": {
             "apply_imputation": apply_imputation,
@@ -222,6 +235,6 @@ def preprocess_data(
 
     logger.info(
         "Preprocessing complete — train: %d, test: %d, features: %d",
-        len(X_train), len(X_test), len(result.feature_names),
+        len(result.X_train), len(result.X_test), len(result.feature_names),
     )
     return result

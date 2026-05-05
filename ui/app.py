@@ -33,6 +33,7 @@ class XAIStudioApp:
     def __init__(self):
         C.set_mode("light")
         self.root = tk.Tk()
+        self.root.navigate_to = self._show_view
         self._ui_scale = detect_ui_scale(self.root)
         try:
             from ui.widgets import set_ui_scale

@@ -86,6 +86,16 @@ class TrainingView(ttk.Frame):
         self._results_area = tk.Frame(ct, bg=C.BG_MAIN)
         self._results_area.pack(fill="both", expand=True, padx=px, pady=(16, 24))
 
+        nav_row = tk.Frame(ct, bg=C.BG_MAIN)
+        nav_row.pack(anchor="e", padx=px, pady=(0, 16))
+        ModernButton(
+            nav_row,
+            text="Passer à l'évaluation",
+            style="primary",
+            command=lambda: self._navigate_to("evaluation"),
+            bg=C.BG_MAIN,
+        ).pack(side="right")
+
     # ──────────────────────────────────────────────────────────────
     def on_enter(self):
         model_names = self._service.get_model_names()
@@ -247,6 +257,12 @@ class TrainingView(ttk.Frame):
                 self.after(0, lambda: self._fail(dlg, exc))
 
         threading.Thread(target=thread, daemon=True).start()
+
+    def _navigate_to(self, view_name: str) -> None:
+        root = self.winfo_toplevel()
+        navigate = getattr(root, "navigate_to", None)
+        if callable(navigate):
+            navigate(view_name)
 
     def _done(self, dlg):
         dlg.close()

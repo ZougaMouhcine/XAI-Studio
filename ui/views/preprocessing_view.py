@@ -23,6 +23,7 @@ class PreprocessingView(ttk.Frame):
         self._service = PipelineService()
         self._catalog = self._service.get_preprocessing_catalog()
         self._viz_img = None
+        self._cluster_token = "__clustering__"
 
         self._target_var = tk.StringVar()
         self._test_size_var = tk.StringVar(value="0.2")
@@ -30,7 +31,6 @@ class PreprocessingView(ttk.Frame):
 
         self._category_var = tk.StringVar(value="data_cleaning")
         self._method_var = tk.StringVar()
-        self._options_var = tk.StringVar(value="{}")
         self._status_var = tk.StringVar(value="Prêt")
 
         self._build()
@@ -83,6 +83,15 @@ class PreprocessingView(ttk.Frame):
         status = tk.Label(ct, textvariable=self._status_var, font=F.SMALL, bg=C.BG_MAIN, fg=C.TEXT_SEC)
         status.pack(anchor="w", padx=px, pady=(0, 24))
 
+        nav_row = tk.Frame(ct, bg=C.BG_MAIN)
+        nav_row.pack(anchor="e", padx=px, pady=(0, 16))
+        ModernButton(
+            nav_row,
+            text="Valider et passer à l'entraînement",
+            style="primary",
+            command=self._prepare_training,
+            bg=C.BG_MAIN,
+        ).pack(side="right")
         self._on_category_change()
 
     def _build_controls(self, parent):
@@ -98,10 +107,11 @@ class PreprocessingView(ttk.Frame):
         tk.Label(parent, text="Test size", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=2, sticky="w")
         ttk.Entry(parent, textvariable=self._test_size_var, width=self._field_width).grid(row=0, column=3, padx=(8, 16), sticky="w")
 
-        tk.Label(parent, text="Random state", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=4, sticky="w")
-        ttk.Entry(parent, textvariable=self._random_state_var, width=self._field_width).grid(row=0, column=5, padx=(8, 8), sticky="w")
+        random_state_row = tk.Frame(parent, bg=C.BG_CARD)
+        random_state_row.grid(row=0, column=4, columnspan=2, sticky="w")
+        tk.Label(random_state_row, text="Random state", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).pack(side="left")
+        ttk.Entry(random_state_row, textvariable=self._random_state_var, width=self._field_width).pack(side="left", padx=(8, 0))
 
-        ModernButton(parent, text="Préparer entraînement", style="primary", command=self._prepare_training, bg=C.BG_CARD).grid(row=0, column=7, sticky="e")
 
         tk.Label(parent, text="Catégorie", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=1, column=0, sticky="w", pady=(14, 0))
         cat_combo = ttk.Combobox(parent, textvariable=self._category_var, width=self._field_width, state="readonly", values=list(self._catalog.keys()))
@@ -123,9 +133,6 @@ class PreprocessingView(ttk.Frame):
             bg=C.BG_CARD,
             fg=C.TEXT_MUTED,
         ).grid(row=3, column=1, columnspan=2, sticky="w", padx=(8, 16), pady=(2, 0))
-
-        tk.Label(parent, text="Options JSON", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=2, column=3, sticky="nw", pady=(14, 0))
-        ttk.Entry(parent, textvariable=self._options_var, width=self._field_width).grid(row=2, column=4, sticky="w", pady=(14, 0), padx=(8, 0))
 
         actions = tk.Frame(parent, bg=C.BG_CARD)
         actions.grid(row=3, column=0, columnspan=8, sticky="ew", pady=(14, 0))
@@ -157,7 +164,7 @@ class PreprocessingView(ttk.Frame):
         ModernButton(row, text="Charger", style="ghost", command=self._load_pipeline, bg=C.BG_CARD).pack(side="right", padx=(8, 0))
         ModernButton(row, text="Exporter code", style="ghost", command=self._export_code, bg=C.BG_CARD).pack(side="right")
 
-        self._recommend_log = LogPanel(card.inner, height=5, label="Suggestions intelligentes", bg_outer=C.BG_CARD)
+        self._recommend_log = LogPanel(card.inner, height=5, label="Suggestions intelligentes", bg_outer=C.BG_CARD, scrollbar=True)
         self._recommend_log.pack(fill="both", expand=True, pady=(12, 0))
 
     def _build_preview_panel(self, parent):
@@ -179,9 +186,11 @@ class PreprocessingView(ttk.Frame):
 
     def on_enter(self):
         columns = self._service.get_columns()
-        self._target_combo["values"] = columns
+        self._target_combo["values"] = columns + ["Clustering (sans cible)"]
         if self._service.target_column and self._service.target_column in columns:
             self._target_var.set(self._service.target_column)
+        elif self._service.target_column is None:
+            self._target_var.set("Clustering (sans cible)")
         elif columns:
             self._target_var.set(columns[-1])
 
@@ -214,14 +223,10 @@ class PreprocessingView(ttk.Frame):
             raise ValueError("Sélectionnez au moins une colonne pour la visualisation.")
 
     def _parse_options(self) -> dict:
-        raw = self._options_var.get().strip() or "{}"
-        try:
-            options = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"Options JSON invalides: {exc}") from exc
+        options = {}
 
         target = self._target_var.get().strip()
-        if target:
+        if target and target != "Clustering (sans cible)":
             options.setdefault("target_column", target)
 
         try:
@@ -353,7 +358,10 @@ class PreprocessingView(ttk.Frame):
         if not target:
             show_error("Erreur", "Sélectionnez une colonne cible.")
             return
-        self._service.set_target_column(target)
+        if target == "Clustering (sans cible)":
+            self._service.set_target_column(None)
+        else:
+            self._service.set_target_column(target)
         try:
             test_size = float(self._test_size_var.get())
             random_state = int(self._random_state_var.get())
@@ -371,6 +379,7 @@ class PreprocessingView(ttk.Frame):
             })
             show_info("Succès", "Préprocessing final prêt pour entraînement.")
             self._set_status("Données prêtes pour entraînement")
+            self._navigate_to("training")
         except Exception as exc:
             show_error("Erreur", str(exc))
 
@@ -438,3 +447,9 @@ class PreprocessingView(ttk.Frame):
             _ = left_width
         except Exception:
             pass
+
+    def _navigate_to(self, view_name: str) -> None:
+        root = self.winfo_toplevel()
+        navigate = getattr(root, "navigate_to", None)
+        if callable(navigate):
+            navigate(view_name)

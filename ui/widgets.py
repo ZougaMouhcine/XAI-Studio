@@ -329,7 +329,7 @@ class ModernButton(tk.Canvas):
 
         display = f"{icon}  {text}".strip() if icon else text
         # Measure text width
-        tmp = tk.Label(parent, text=display, font=F.H4)
+        tmp = tk.Label(parent, text=display, font=scaled_font(11, "bold"))
         tw = tmp.winfo_reqwidth()
         tmp.destroy()
         w = width or (tw + 40)
@@ -522,9 +522,9 @@ class StyledTreeview(tk.Frame):
 # LogPanel  —  styled output / log area
 # ──────────────────────────────────────────────────────────────────────
 class LogPanel(tk.Frame):
-    """Scrollable monospace text area styled as a terminal / log panel."""
+    """Monospace text area styled as a terminal / log panel."""
 
-    def __init__(self, parent, height=6, label="Output", bg_outer=None):
+    def __init__(self, parent, height=6, label="Output", bg_outer=None, scrollbar=False):
         bg_outer = bg_outer or C.BG_MAIN
         super().__init__(parent, bg=bg_outer)
 
@@ -539,7 +539,16 @@ class LogPanel(tk.Frame):
             font=F.MONO_S, relief="flat", padx=12, pady=10,
             wrap="word", insertbackground=C.TEXT, selectbackground=C.TREE_SELECT,
         )
-        self._text.pack(fill="both", expand=True)
+
+        if scrollbar:
+            vsb = ttk.Scrollbar(border, orient="vertical", command=self._text.yview)
+            self._text.configure(yscrollcommand=vsb.set)
+            self._text.grid(row=0, column=0, sticky="nsew")
+            vsb.grid(row=0, column=1, sticky="ns")
+            border.rowconfigure(0, weight=1)
+            border.columnconfigure(0, weight=1)
+        else:
+            self._text.pack(fill="both", expand=True)
 
     def set_content(self, content: str):
         self._text.configure(state="normal")

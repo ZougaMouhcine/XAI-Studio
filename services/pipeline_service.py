@@ -66,6 +66,7 @@ class PipelineService:
         self.trained_models: dict | None = None
         self.evaluation_results: dict | None = None
         self.comparison_df: pd.DataFrame | None = None
+        self.training_log: list[str] = []
         # Phase 2 — Uploaded model state
         self.loaded_model = None
         self.loaded_model_metadata: dict | None = None
@@ -172,7 +173,7 @@ class PipelineService:
             return self.dataframe.columns.tolist()
         return []
 
-    def set_target_column(self, column: str):
+    def set_target_column(self, column: str | None):
         self.target_column = column
         logger.info("Target column set to: '%s'", column)
 
@@ -188,8 +189,8 @@ class PipelineService:
         """Run the preprocessing pipeline on the loaded data."""
         if self.dataframe is None:
             raise RuntimeError("No data loaded. Please load a CSV file first.")
-        if not self.target_column:
-            raise RuntimeError("No target column selected.")
+        if self.target_column is None:
+            logger.info("No target selected — switching to clustering mode")
 
         self.preprocessing_result = preprocess_data(
             self.dataframe,
@@ -232,12 +233,19 @@ class PipelineService:
             raise RuntimeError("Data not preprocessed yet.")
 
         pr = self.preprocessing_result
+        self.training_log = ["Démarrage entraînement..."]
         self.trained_models = train_all_models(
             pr.X_train, pr.y_train, pr.task_type,
             selected_models=selected_models,
             model_params_map=model_params_map,
             progress_callback=progress_callback,
         )
+
+        for name, entry in self.trained_models.items():
+            if entry.get("model") is not None:
+                self.training_log.append(f"✅ {name} — {entry['training_time']:.3f}s")
+            else:
+                self.training_log.append(f"❌ {name} — {entry.get('error', 'error')}")
 
         # Clear downstream
         self.evaluation_results = None
@@ -293,6 +301,8 @@ class PipelineService:
             estimator = cls()
             if search == "random":
                 searcher = RandomizedSearchCV(estimator, grid, n_iter=n_iter, cv=cv, n_jobs=1)
+            elif search in ("grid", "basic"):
+                searcher = GridSearchCV(estimator, grid, cv=cv, n_jobs=1)
             else:
                 searcher = GridSearchCV(estimator, grid, cv=cv, n_jobs=1)
 
@@ -304,6 +314,47 @@ class PipelineService:
                     "params": dict(searcher.best_params_),
                     "name": name,
                 })
+
+        # Optional Optuna / Bayesian optimization
+        if search in ("optuna", "bayes"):
+            try:
+                import optuna
+                from sklearn.model_selection import cross_val_score
+            except Exception as exc:
+                raise RuntimeError("Optuna is required for Bayesian optimization.") from exc
+
+            def _suggest(trial, param_name, values):
+                if all(isinstance(v, int) for v in values):
+                    return trial.suggest_int(param_name, min(values), max(values))
+                if all(isinstance(v, float) for v in values):
+                    return trial.suggest_float(param_name, min(values), max(values))
+                return trial.suggest_categorical(param_name, values)
+
+            def objective(trial):
+                model_name = trial.suggest_categorical("model", names)
+                info = registry.get(model_name)
+                if not info:
+                    return -1
+                grid = (param_grids or {}).get(model_name) or info.get("param_grid") or {}
+                params = {k: _suggest(trial, k, v) for k, v in grid.items() if isinstance(v, list) and v}
+
+                module = __import__(info["module"], fromlist=[info["class"]])
+                cls = getattr(module, info["class"])
+                est = cls(**params)
+                scores = cross_val_score(est, X, y, cv=cv)
+                return float(scores.mean())
+
+            study = optuna.create_study(direction="maximize")
+            study.optimize(objective, n_trials=n_iter)
+            best_params = dict(study.best_params)
+            best_name = best_params.pop("model", names[0] if names else None)
+            best_info = registry.get(best_name)
+            if best_info:
+                module = __import__(best_info["module"], fromlist=[best_info["class"]])
+                cls = getattr(module, best_info["class"])
+                model = cls(**best_params)
+                model.fit(X, y)
+                best_overall.update({"score": float(study.best_value), "model": model, "params": best_params, "name": best_name})
 
         return best_overall
 

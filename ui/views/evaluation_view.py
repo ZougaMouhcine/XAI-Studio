@@ -52,6 +52,16 @@ class EvaluationView(ttk.Frame):
                  text="Entraînez vos modèles puis cliquez sur « Évaluer »",
                  font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT_DIM).pack(pady=24)
 
+        nav_row = tk.Frame(ct, bg=C.BG_MAIN)
+        nav_row.pack(anchor="e", padx=px, pady=(0, 16))
+        ModernButton(
+            nav_row,
+            text="Passer aux modèles",
+            style="primary",
+            command=lambda: self._navigate_to("models"),
+            bg=C.BG_MAIN,
+        ).pack(side="right")
+
 
     def on_enter(self):
         if self._service.evaluation_results:
@@ -195,3 +205,9 @@ class EvaluationView(ttk.Frame):
                     log2 = LogPanel(detail_row, height=10, label="Rapport de classification")
                     log2.pack(side="left", fill="both", expand=True, padx=(6, 0))
                     log2.set_content(report)
+
+    def _navigate_to(self, view_name: str) -> None:
+        root = self.winfo_toplevel()
+        navigate = getattr(root, "navigate_to", None)
+        if callable(navigate):
+            navigate(view_name)
