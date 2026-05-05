@@ -14,7 +14,7 @@ import numpy as np
 from core.data_loader import load_tabular, get_summary, detect_target_column
 from core.preprocessing import preprocess_data, PreprocessingResult
 from core.preprocessing_module import PreprocessingWorkspace, StepSpec, prettify_pipeline_help
-from core.training import train_model, train_all_models, get_available_models
+from core.training import train_model, train_all_models, get_available_models, get_model_param_schema
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 import random
 from core.evaluation import evaluate_model, compare_models
@@ -221,6 +221,15 @@ class PipelineService:
         if self.preprocessing_result is None:
             return {}
         return get_available_models(self.preprocessing_result.task_type)
+
+    def get_model_param_schema(self, model_name: str, include_all: bool = False) -> list[dict]:
+        """Return parameter schema for a model name."""
+        if self.preprocessing_result is None:
+            return []
+        return get_model_param_schema(self.preprocessing_result.task_type, model_name, include_all=include_all)
+
+    def get_training_logs(self) -> list[str]:
+        return list(self.training_log)
 
     def run_training(
         self,

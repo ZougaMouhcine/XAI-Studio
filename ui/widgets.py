@@ -588,6 +588,64 @@ class PipelineStep(tk.Frame):
         self._dot.configure(fg=self._status_colors.get(status, C.TEXT_DIM))
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Tooltip
+# ──────────────────────────────────────────────────────────────────────
+class Tooltip:
+    """Lightweight hover tooltip for Tk widgets."""
+
+    def __init__(self, widget: tk.Widget, text: str, delay_ms: int = 450):
+        self._widget = widget
+        self._text = text
+        self._delay_ms = delay_ms
+        self._after_id = None
+        self._tip = None
+
+        widget.bind("<Enter>", self._schedule)
+        widget.bind("<Leave>", self._hide)
+        widget.bind("<ButtonPress>", self._hide)
+
+    def _schedule(self, _=None):
+        if not self._text:
+            return
+        self._cancel()
+        self._after_id = self._widget.after(self._delay_ms, self._show)
+
+    def _cancel(self):
+        if self._after_id is not None:
+            self._widget.after_cancel(self._after_id)
+            self._after_id = None
+
+    def _show(self):
+        if self._tip is not None:
+            return
+        x = self._widget.winfo_rootx() + 12
+        y = self._widget.winfo_rooty() + self._widget.winfo_height() + 8
+        self._tip = tk.Toplevel(self._widget)
+        self._tip.overrideredirect(True)
+        self._tip.attributes("-topmost", True)
+        self._tip.configure(bg=C.BG_CARD)
+        label = tk.Label(
+            self._tip,
+            text=self._text,
+            bg=C.BG_CARD,
+            fg=C.TEXT,
+            font=F.TINY,
+            padx=8,
+            pady=4,
+            relief="solid",
+            bd=1,
+        )
+        label.pack()
+        self._tip.geometry(f"+{x}+{y}")
+
+    def _hide(self, _=None):
+        self._cancel()
+        if self._tip is not None:
+            self._tip.destroy()
+            self._tip = None
+
+
 def bind_mousewheel_to(canvas: tk.Canvas, scope_widget: tk.Widget):
     """Bind mouse wheel scrolling only when cursor is over the view scope."""
 

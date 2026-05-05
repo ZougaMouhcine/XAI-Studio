@@ -17,3 +17,4 @@ venv/
 *.swo
 *~
 models/saved/*.pkl
+catboost_info/

@@ -68,6 +68,76 @@ def _instantiate_model(model_info: dict, custom_params: dict | None = None):
     return cls(**params)
 
 
+def _infer_param_type(value) -> str:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "float"
+    if isinstance(value, (list, tuple, set)):
+        return "choice"
+    return "string"
+
+
+def get_model_param_schema(
+    task_type: str,
+    model_name: str,
+    include_all: bool = False,
+) -> list[dict]:
+    """Return parameter metadata for a model, including inferred defaults."""
+    registry = get_available_models(task_type, include_unavailable=True)
+    info = registry.get(model_name)
+    if info is None:
+        raise ValueError(f"Model '{model_name}' not found in registry.")
+
+    param_meta = info.get("param_meta", {}) or {}
+    default_params = info.get("default_params", {}) or {}
+
+    defaults = {}
+    try:
+        module = importlib.import_module(info["module"])
+        cls = getattr(module, info["class"])
+        defaults = cls().get_params()
+    except Exception:
+        defaults = {}
+
+    schema = []
+    used = set()
+    for name, meta in param_meta.items():
+        default_val = meta.get("default", default_params.get(name, defaults.get(name)))
+        entry = {
+            "name": name,
+            "type": meta.get("type") or _infer_param_type(default_val),
+            "default": default_val,
+            "min": meta.get("min"),
+            "max": meta.get("max"),
+            "choices": meta.get("choices"),
+            "desc": meta.get("desc", ""),
+            "source": "meta",
+        }
+        schema.append(entry)
+        used.add(name)
+
+    if include_all:
+        for name, val in defaults.items():
+            if name in used:
+                continue
+            schema.append({
+                "name": name,
+                "type": _infer_param_type(val),
+                "default": val,
+                "min": None,
+                "max": None,
+                "choices": None,
+                "desc": "",
+                "source": "auto",
+            })
+
+    # Ensure deterministic ordering
+    return sorted(schema, key=lambda e: (e.get("source") != "meta", e.get("name", "")))
+
+
 def train_model(
     name: str,
     X_train: np.ndarray,
