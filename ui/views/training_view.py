@@ -15,13 +15,11 @@ from ui.widgets import (
     Card,
     ModernButton,
     SectionHeader,
-    StyledTreeview,
     LogPanel,
     Tooltip,
     bind_mousewheel_to,
 )
 from ui.components.dialogs import show_error, show_info
-from ui.components.plot_canvas import PlotCanvas, create_styled_figure
 from services.pipeline_service import PipelineService
 from ui.views.nn_builder_view import NNBuilderView
 
@@ -45,7 +43,6 @@ class TrainingView(ttk.Frame):
         self._train_eta_var = tk.StringVar(value="-")
         self._train_resource_var = tk.StringVar(value="-")
         self._train_progress_var = tk.DoubleVar(value=0.0)
-        self._auto_eval_var = tk.BooleanVar(value=True)
         self._show_all_params_var = tk.BooleanVar(value=False)
 
         self._automl_search_var = tk.StringVar(value="grid")
@@ -68,7 +65,7 @@ class TrainingView(ttk.Frame):
             header,
             icon="",
             title="Training & Deep Learning Studio",
-            subtitle="Entrainez, comparez et construisez des reseaux de neurones",
+            subtitle="Entrainez et construisez des reseaux de neurones",
         ).pack(side="left")
 
         self._notebook = ttk.Notebook(ct)
@@ -81,6 +78,16 @@ class TrainingView(ttk.Frame):
         self._build_training_tab(self._train_tab)
         self._build_automl_tab(self._automl_tab)
         self._build_dl_tab(self._dl_tab)
+
+        nav_row = tk.Frame(ct, bg=C.BG_MAIN)
+        nav_row.pack(anchor="e", padx=px, pady=(0, 16))
+        ModernButton(
+            nav_row,
+            text="Passer a l'evaluation",
+            style="primary",
+            command=lambda: self._navigate_to("evaluation"),
+            bg=C.BG_MAIN,
+        ).pack(side="right")
 
     def _create_scroll_tab(self, notebook: ttk.Notebook, title: str) -> tk.Frame:
         tab = tk.Frame(notebook, bg=C.BG_MAIN)
@@ -171,8 +178,7 @@ class TrainingView(ttk.Frame):
         self._progress = ttk.Progressbar(train_top, variable=self._train_progress_var, maximum=1.0)
         self._progress.pack(side="left", fill="x", expand=True, padx=(0, 12))
 
-        ModernButton(train_top, text="Lancer entrainement", style="primary", command=self._on_train, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(train_top, text="Evaluer", style="secondary", command=self._run_evaluation, bg=C.BG_CARD).pack(side="left")
+        ModernButton(train_top, text="Lancer entrainement", style="primary", command=self._on_train, bg=C.BG_CARD).pack(side="left")
 
         train_meta = tk.Frame(self._train_card.inner, bg=C.BG_CARD)
         train_meta.pack(fill="x")
@@ -180,38 +186,8 @@ class TrainingView(ttk.Frame):
         tk.Label(train_meta, textvariable=self._train_eta_var, font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_DIM).pack(side="left", padx=(16, 0))
         tk.Label(train_meta, textvariable=self._train_resource_var, font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_DIM).pack(side="left", padx=(16, 0))
 
-        ttk.Checkbutton(
-            self._train_card.inner,
-            text="Evaluer automatiquement apres entrainement",
-            variable=self._auto_eval_var,
-            style="Card.TCheckbutton",
-        ).pack(anchor="w", pady=(6, 0))
-
         self._train_log = LogPanel(self._train_card.inner, height=7, label="Logs d'entrainement", bg_outer=C.BG_CARD, scrollbar=True)
         self._train_log.pack(fill="both", expand=True, pady=(10, 0))
-
-        self._results_card = Card(parent, accent_color=C.INFO, pad=16)
-        self._results_card.pack(fill="both", expand=True, padx=px, pady=(0, 16))
-        tk.Label(self._results_card.inner, text="Comparaison et performances", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
-
-        results_row = tk.Frame(self._results_card.inner, bg=C.BG_CARD)
-        results_row.pack(fill="both", expand=True, pady=(8, 0))
-        results_row.columnconfigure(0, weight=2, uniform="res")
-        results_row.columnconfigure(1, weight=3, uniform="res")
-
-        left_res = tk.Frame(results_row, bg=C.BG_CARD)
-        left_res.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        right_res = tk.Frame(results_row, bg=C.BG_CARD)
-        right_res.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
-
-        self._plot = PlotCanvas(left_res, bg=C.BG_CARD)
-        self._plot.pack(fill="both", expand=True)
-
-        self._results_table = StyledTreeview(right_res, columns=("Modele", "Statut", "Temps"), col_widths={"Modele": 200, "Statut": 100, "Temps": 120}, height=8, bg=C.BG_CARD)
-        self._results_table.pack(fill="both", expand=True, pady=(0, 8))
-
-        self._comparison_table = StyledTreeview(right_res, columns=("Metric", "Valeur"), col_widths={"Metric": 160, "Valeur": 120}, height=6, bg=C.BG_CARD)
-        self._comparison_table.pack(fill="x")
 
     def _build_automl_tab(self, parent: tk.Frame):
         px = 16
@@ -270,7 +246,6 @@ class TrainingView(ttk.Frame):
     def on_enter(self):
         self._refresh_overview()
         self._refresh_model_list()
-        self._refresh_training_tables()
         self._refresh_automl_models()
 
     def _refresh_overview(self):
@@ -500,9 +475,6 @@ class TrainingView(ttk.Frame):
         logs = "\n".join(self._service.get_training_logs())
         if logs:
             self._train_log.set_content(logs)
-        self._refresh_training_tables()
-        if self._auto_eval_var.get():
-            self._run_evaluation()
         show_info("Succes", "Entrainement termine.")
 
     def _snapshot_resources(self) -> str | None:
@@ -524,52 +496,6 @@ class TrainingView(ttk.Frame):
         except Exception:
             pass
         return text
-
-    def _run_evaluation(self):
-        try:
-            self._service.run_evaluation()
-            self._refresh_comparison_table()
-            self._refresh_plot()
-            show_info("Succes", "Evaluation terminee.")
-        except Exception as exc:
-            show_error("Erreur", str(exc))
-
-    def _refresh_training_tables(self):
-        self._results_table.tree.delete(*self._results_table.tree.get_children())
-        models = self._service.trained_models or {}
-        for name, entry in models.items():
-            if entry.get("model") is not None:
-                vals = (name, "OK", f"{entry['training_time']:.3f}s")
-            else:
-                vals = (name, "Echec", "-")
-            self._results_table.tree.insert("", "end", values=vals)
-
-    def _refresh_comparison_table(self):
-        self._comparison_table.tree.delete(*self._comparison_table.tree.get_children())
-        df = self._service.get_comparison_table()
-        if df is None or df.empty:
-            return
-
-        best = df.iloc[0].to_dict()
-        for k, v in best.items():
-            if k == "Model":
-                continue
-            self._comparison_table.tree.insert("", "end", values=(k, v))
-
-    def _refresh_plot(self):
-        df = self._service.get_comparison_table()
-        if df is None or df.empty:
-            return
-
-        fig = create_styled_figure(figsize=(4.8, 3.4))
-        ax = fig.add_subplot(111)
-        metric = "accuracy" if "accuracy" in df.columns else "r2"
-        values = df[metric].fillna(0).tolist()[:8]
-        labels = df["Model"].tolist()[:8]
-        ax.bar(labels, values, color=C.ACCENT)
-        ax.set_title(f"Top modeles - {metric}")
-        ax.tick_params(axis="x", rotation=30)
-        self._plot.update_figure(fig)
 
     def _refresh_automl_models(self):
         self._automl_list.delete(0, "end")
@@ -611,6 +537,12 @@ class TrainingView(ttk.Frame):
         }
         self._automl_log.set_content(json.dumps(text, indent=2, ensure_ascii=False))
         self._automl_status_var.set("AutoML termine")
+
+    def _navigate_to(self, view_name: str) -> None:
+        root = self.winfo_toplevel()
+        navigate = getattr(root, "navigate_to", None)
+        if callable(navigate):
+            navigate(view_name)
 
     @staticmethod
     def _format_params(params: dict) -> str:
