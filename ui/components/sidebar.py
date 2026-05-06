@@ -17,6 +17,7 @@ class Sidebar(tk.Frame):
         ("Préprocessing", "preprocessing"),
         ("Entraînement", "training"),
         ("Évaluation & XAI", "evaluation"),
+        ("Prediction", "prediction"),
         ("Modèles", "models"),
     ]
 
@@ -201,6 +202,8 @@ class Sidebar(tk.Frame):
             self._draw_training_icon(canvas, color)
         elif view_name == "evaluation":
             self._draw_evaluation_icon(canvas, color)
+        elif view_name == "prediction":
+            self._draw_prediction_icon(canvas, color)
         else:
             self._draw_models_icon(canvas, color)
 
@@ -236,6 +239,11 @@ class Sidebar(tk.Frame):
         canvas.create_rectangle(8, 9, 10, 16, outline=color, width=1.4, tags="stroke")
         canvas.create_rectangle(13, 6, 15, 16, outline=color, width=1.4, tags="stroke")
         canvas.create_line(2, 11, 6, 8.5, 10, 10, 16, 5, fill=color, width=1.2, smooth=True, tags="stroke")
+
+    def _draw_prediction_icon(self, canvas: tk.Canvas, color: str):
+        canvas.create_line(2, 10, 14, 10, fill=color, width=1.4, tags="stroke")
+        canvas.create_polygon(12, 6, 18, 10, 12, 14, outline=color, fill="", width=1.4, tags="stroke")
+        canvas.create_oval(2, 6, 6, 10, outline=color, width=1.4, tags="stroke")
 
     def _draw_models_icon(self, canvas: tk.Canvas, color: str):
         canvas.create_rectangle(2, 3, 8, 9, outline=color, width=1.4, tags="stroke")

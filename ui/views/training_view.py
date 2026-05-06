@@ -83,6 +83,13 @@ class TrainingView(ttk.Frame):
         nav_row.pack(anchor="e", padx=px, pady=(0, 16))
         ModernButton(
             nav_row,
+            text="Aller a la prediction",
+            style="secondary",
+            command=lambda: self._navigate_to("prediction"),
+            bg=C.BG_MAIN,
+        ).pack(side="right", padx=(8, 0))
+        ModernButton(
+            nav_row,
             text="Passer a l'evaluation",
             style="primary",
             command=lambda: self._navigate_to("evaluation"),

@@ -43,6 +43,9 @@ class ModelsView(ttk.Frame):
 
         btn_row = tk.Frame(header, bg=C.BG_MAIN)
         btn_row.pack(side="right")
+        ModernButton(btn_row, text="Prediction", icon="",
+                 style="secondary", command=lambda: self._navigate_to("prediction"),
+                 bg=C.BG_MAIN).pack(side="left", padx=(0, 8), pady=6)
         ModernButton(btn_row, text="Sauvegarder tout", icon="",
                      style="primary", command=self._on_save_all,
                      bg=C.BG_MAIN).pack(side="left", padx=(0, 8), pady=6)
@@ -169,3 +172,9 @@ class ModelsView(ttk.Frame):
             self._refresh()
         else:
             show_error("Erreur", "Échec de la suppression.")
+
+    def _navigate_to(self, view_name: str) -> None:
+        root = self.winfo_toplevel()
+        navigate = getattr(root, "navigate_to", None)
+        if callable(navigate):
+            navigate(view_name)

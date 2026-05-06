@@ -415,7 +415,32 @@ class PipelineService:
                 self.preprocessing_result.feature_names
                 if self.preprocessing_result else []
             ),
+            "input_feature_names": (
+                self.preprocessing_result.input_feature_names
+                if self.preprocessing_result else []
+            ),
+            "numeric_feature_names": (
+                self.preprocessing_result.numeric_feature_names
+                if self.preprocessing_result else []
+            ),
+            "categorical_feature_names": (
+                self.preprocessing_result.categorical_feature_names
+                if self.preprocessing_result else []
+            ),
+            "feature_schema": (
+                self.preprocessing_result.feature_schema
+                if self.preprocessing_result else []
+            ),
             "training_time": entry.get("training_time", 0),
+            "preprocessing_artifacts": (
+                {
+                    "num_imputer": self.preprocessing_result.encoders.get("num_imputer") if self.preprocessing_result else None,
+                    "cat_imputer": self.preprocessing_result.encoders.get("cat_imputer") if self.preprocessing_result else None,
+                    "one_hot_encoder": self.preprocessing_result.encoders.get("one_hot_encoder") if self.preprocessing_result else None,
+                    "scaler": self.preprocessing_result.scaler if self.preprocessing_result else None,
+                }
+                if self.preprocessing_result else {}
+            ),
         }
 
         # Attach evaluation metrics if available

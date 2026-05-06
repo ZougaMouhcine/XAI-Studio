@@ -8,9 +8,6 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from ui.widgets import (
     C,
@@ -24,7 +21,8 @@ from ui.widgets import (
     Badge,
     bind_mousewheel_to,
 )
-from ui.components.plot_canvas import PlotCanvas, apply_plot_style
+from ui.components.plot_canvas import PlotCanvas
+from ui.components.xai_panel import XAIPanel
 from ui.components.dialogs import show_error, show_info
 from services.evaluation_controller import EvaluationController
 from services.visualization_service import VisualizationService
@@ -308,8 +306,8 @@ class EvaluationView(ttk.Frame):
         self._local_slider_frame = tk.Frame(tab_local, bg=C.BG_MAIN)
         self._local_slider_frame.pack(fill="x", padx=12)
 
-        self._local_canvas = PlotCanvas(tab_local)
-        self._local_canvas.pack(fill="both", expand=True, padx=12, pady=(12, 12))
+        self._xai_panel = XAIPanel(tab_local, xai_service=self._controller.xai_service, title="Local XAI")
+        self._xai_panel.pack(fill="both", expand=True, padx=12, pady=(12, 12))
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -708,29 +706,13 @@ class EvaluationView(ttk.Frame):
         if self._active_entry_id is None or self._local_values is None:
             show_error("Erreur", "Chargez une instance")
             return
-
-        def _compute():
-            return self._controller.local_explanation(self._active_entry_id, self._local_values)
-
-        def _done(exp):
-            fig = self._plot_local_contributions(exp.contributions)
-            self._local_canvas.update_figure(fig)
-
-        self._run_async(_compute, _done)
-
-    def _plot_local_contributions(self, contributions):
-        apply_plot_style()
-        names = [c[0] for c in contributions][:12]
-        vals = [c[1] for c in contributions][:12]
-        colors = ["#ef4444" if v < 0 else "#10b981" for v in vals]
-        fig = plt.figure(figsize=(7, 4.5), facecolor=C.BG_CARD)
-        ax = fig.add_subplot(111)
-        ax.set_facecolor("#111c2e")
-        ax.barh(names[::-1], vals[::-1], color=colors[::-1])
-        ax.axvline(0, color=C.TEXT_DIM, linestyle="--", linewidth=0.8)
-        ax.set_title("Contribution des features")
-        fig.tight_layout()
-        return fig
+        entry = self._controller.registry.get(self._active_entry_id)
+        if not entry:
+            show_error("Erreur", "Modele introuvable")
+            return
+        entry = self._controller.registry.ensure_loaded(entry)
+        feature_names = entry.metadata.get("feature_names", [])
+        self._xai_panel.update(entry.model, self._local_values, feature_names, entry.task_type)
 
     # ------------------------------------------------------------------
     # Async helper

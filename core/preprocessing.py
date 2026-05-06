@@ -29,6 +29,10 @@ class PreprocessingResult:
     y_train: np.ndarray = None
     y_test: np.ndarray = None
     feature_names: list[str] = field(default_factory=list)
+    input_feature_names: list[str] = field(default_factory=list)
+    numeric_feature_names: list[str] = field(default_factory=list)
+    categorical_feature_names: list[str] = field(default_factory=list)
+    feature_schema: list[dict] = field(default_factory=list)
     target_name: str = ""
     task_type: str = ""  # "classification" or "regression"
     label_encoder: LabelEncoder | None = None
@@ -125,6 +129,9 @@ def preprocess_data(
     # ------------------------------------------------------------------
     numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = X.select_dtypes(exclude=[np.number]).columns.tolist()
+    result.input_feature_names = X.columns.tolist()
+    result.numeric_feature_names = numeric_cols
+    result.categorical_feature_names = categorical_cols
 
     if apply_imputation:
         if numeric_cols:
@@ -198,6 +205,23 @@ def preprocess_data(
         X_scaled = X.values
         logger.info("Skipped feature scaling")
     result.feature_names = X.columns.tolist()
+    result.feature_schema = []
+    for col in numeric_cols:
+        result.feature_schema.append({"name": col, "type": "numeric", "default": None, "choices": None})
+    if categorical_cols:
+        choices_map = {}
+        ohe = result.encoders.get("one_hot_encoder")
+        if ohe is not None and hasattr(ohe, "categories_"):
+            for col, choices in zip(categorical_cols, ohe.categories_):
+                choices_map[col] = [str(choice) for choice in list(choices)]
+        for col in categorical_cols:
+            choices = choices_map.get(col, [])
+            result.feature_schema.append({
+                "name": col,
+                "type": "choice" if choices else "categorical",
+                "default": choices[0] if choices else None,
+                "choices": choices,
+            })
 
     # ------------------------------------------------------------------
     # 7. Train / test split

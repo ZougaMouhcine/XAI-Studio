@@ -18,6 +18,7 @@ from ui.views.data_view import DataView
 from ui.views.preprocessing_view import PreprocessingView
 from ui.views.training_view import TrainingView
 from ui.views.evaluation_view import EvaluationView
+from ui.views.prediction_view import PredictionView
 from ui.views.models_view import ModelsView
 from ui.views.upload_view import UploadView
 from ui.views.xai_view import XAIView
@@ -155,6 +156,7 @@ class XAIStudioApp:
             "preprocessing": PreprocessingView,
             "training": TrainingView,
             "evaluation": EvaluationView,
+            "prediction": PredictionView,
             "models": ModelsView,
             "upload": UploadView,
             "xai": XAIView,
