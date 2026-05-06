@@ -16,7 +16,7 @@ class Sidebar(tk.Frame):
         ("Données", "data"),
         ("Préprocessing", "preprocessing"),
         ("Entraînement", "training"),
-        ("Évaluation", "evaluation"),
+        ("Évaluation & XAI", "evaluation"),
         ("Modèles", "models"),
     ]
 
