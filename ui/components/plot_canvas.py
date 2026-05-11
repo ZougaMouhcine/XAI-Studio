@@ -94,13 +94,15 @@ class PlotCanvas(tk.Frame):
         self._canvas_widget = FigureCanvasTkAgg(fig, master=self)
         widget = self._canvas_widget.get_tk_widget()
         widget.configure(bg=self._bg, highlightthickness=0)
-        widget.pack(fill="both", expand=True)
+        pad_x = 12
+        pad_y = 12
+        widget.pack(fill="both", expand=True, padx=pad_x, pady=pad_y)
 
         if self._auto_size:
             pad_y = 24
             width_px, height_px = fig.get_size_inches() * fig.dpi
             widget.configure(width=int(width_px), height=int(height_px))
-            widget.pack_configure(pady=(pad_y, pad_y))
+            widget.pack_configure(padx=pad_x, pady=(pad_y, pad_y))
             self.configure(height=int(height_px + (pad_y * 2)))
             self.pack_propagate(False)
 

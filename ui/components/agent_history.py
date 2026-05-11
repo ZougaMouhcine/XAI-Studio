@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
 
-from ui.widgets import C, F, scaled, scaled_font
+from ui.widgets import C, F, scaled_font
+from ui.components.dialogs import apply_popup_geometry
 
 class HistoryDialog(tk.Toplevel):
     """Dialog to list, load, and delete previous Copilot conversations."""
@@ -10,7 +11,7 @@ class HistoryDialog(tk.Toplevel):
     def __init__(self, parent, agent_service, on_load_callback):
         super().__init__(parent)
         self.title("Chat History")
-        self.geometry(f"{scaled(450)}x{scaled(500)}")
+        apply_popup_geometry(self, parent)
         self.configure(bg=C.BG_MAIN)
         self.transient(parent)
         self.grab_set()
@@ -21,11 +22,7 @@ class HistoryDialog(tk.Toplevel):
         self._build()
         self._load_list()
 
-        # Center on screen
         self.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
-        self.geometry(f"+{x}+{y}")
 
     def _build(self):
         # Header

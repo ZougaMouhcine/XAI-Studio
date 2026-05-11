@@ -41,10 +41,10 @@ class XAIPanel(tk.Frame):
         self._status.pack(side="right")
 
         self._bar_canvas = PlotCanvas(card.inner, bg=C.BG_CARD, auto_size=False)
-        self._bar_canvas.pack(fill="both", expand=True, pady=(10, 8))
+        self._bar_canvas.pack(fill="both", expand=True, padx=12, pady=(14, 8))
 
         self._waterfall_canvas = PlotCanvas(card.inner, bg=C.BG_CARD, auto_size=False)
-        self._waterfall_canvas.pack(fill="both", expand=True)
+        self._waterfall_canvas.pack(fill="both", expand=True, padx=12, pady=(0, 14))
 
     def update(self, model, instance, feature_names, task_type="classification"):
         self._status.configure(text="Computing...")
@@ -74,5 +74,5 @@ class XAIPanel(tk.Frame):
         ax.barh(names[::-1], vals[::-1], color=colors[::-1])
         ax.axvline(0, color=C.TEXT_DIM, linestyle="--", linewidth=0.8)
         ax.set_title("Feature contributions")
-        fig.tight_layout()
+        fig.tight_layout(pad=1.6)
         return fig

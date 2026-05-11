@@ -9,6 +9,7 @@ from ui.components.dialogs import (
     ask_export_python_file,
     ask_open_pipeline_file,
     ask_save_pipeline_file,
+    apply_popup_geometry,
     show_error,
     show_info,
 )
@@ -206,6 +207,7 @@ class PreprocessingView(ttk.Frame):
         win.transient(self.winfo_toplevel())
         win.grab_set()
         win.resizable(False, False)
+        apply_popup_geometry(win, self.winfo_toplevel())
 
         body = tk.Frame(win, bg=C.BG_CARD)
         body.pack(fill="both", expand=True, padx=16, pady=16)

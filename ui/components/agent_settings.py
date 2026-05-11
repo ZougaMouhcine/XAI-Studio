@@ -12,6 +12,7 @@ import os
 import threading
 
 from ui.widgets import C, F, scaled_font
+from ui.components.dialogs import apply_popup_geometry
 from config.settings import BASE_DIR
 from utils.logger import get_logger
 from services.i18n import _
@@ -55,11 +56,7 @@ class AgentSettingsDialog(tk.Toplevel):
         self.configure(bg=C.BG_CARD)
         self.resizable(False, False)
 
-        # Center on parent
-        w, h = 540, 700
-        px = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
-        py = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
-        self.geometry(f"{w}x{h}+{px}+{py}")
+        apply_popup_geometry(self, parent)
 
         self.transient(parent)
         self.grab_set()
