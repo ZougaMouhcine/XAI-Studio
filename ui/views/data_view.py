@@ -21,6 +21,7 @@ class DataView(ttk.Frame):
         super().__init__(parent, style="TFrame")
         self._service = PipelineService()
         self._has_header_var = tk.BooleanVar(value=True)
+        self._first_col_id_var = tk.BooleanVar(value=False)
         self._build()
 
     def _build(self):
@@ -55,6 +56,12 @@ class DataView(ttk.Frame):
             controls,
             text=_("data_header_checkbox"),
             variable=self._has_header_var,
+        ).pack(side="left", padx=(0, 12), pady=6)
+
+        ttk.Checkbutton(
+            controls,
+            text=_("data_id_checkbox"),
+            variable=self._first_col_id_var,
         ).pack(side="left", padx=(0, 12), pady=6)
 
         ModernButton(
@@ -137,7 +144,11 @@ class DataView(ttk.Frame):
         if not filepath:
             return
         try:
-            df = self._service.load_data(filepath, has_header=self._has_header_var.get())
+            df = self._service.load_data(
+                filepath,
+                has_header=self._has_header_var.get(),
+                ignore_first_column=self._first_col_id_var.get(),
+            )
         except Exception as exc:
             show_error(_("data_err_title"), str(exc))
             return

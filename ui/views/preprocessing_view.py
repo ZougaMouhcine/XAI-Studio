@@ -27,6 +27,8 @@ class PreprocessingView(ttk.Frame):
         self._cluster_token = "__clustering__"
 
         self._target_var = tk.StringVar()
+        self._target_values: list[str] = []
+        self._target_choices: list[str] = []
         self._test_size_var = tk.StringVar(value="0.2")
         self._random_state_var = tk.StringVar(value="42")
 
@@ -101,17 +103,19 @@ class PreprocessingView(ttk.Frame):
             parent.columnconfigure(i, weight=0)
         parent.columnconfigure(7, weight=1)
 
-        target_label_frame = tk.Frame(parent, bg=C.BG_CARD)
-        target_label_frame.grid(row=0, column=0, sticky="nw")
-        tk.Label(target_label_frame, text=_("prep_target"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
-        self._target_mode_btn = tk.Button(
-            target_label_frame, text="Mode: Multi", font=F.TINY, bg=C.BG_CARD, fg=C.ACCENT,
-            bd=0, cursor="hand2", command=self._toggle_target_mode
-        )
-        self._target_mode_btn.pack(anchor="w", pady=(2, 0))
-
-        self._target_list = tk.Listbox(parent, selectmode="extended", height=3, exportselection=False, width=self._field_width)
-        self._target_list.grid(row=0, column=1, padx=(8, 16), sticky="w")
+        tk.Label(parent, text=_("prep_target"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=0, sticky="w")
+        target_row = tk.Frame(parent, bg=C.BG_CARD)
+        target_row.grid(row=0, column=1, padx=(8, 16), sticky="w")
+        self._target_entry = ttk.Entry(target_row, textvariable=self._target_var, width=self._field_width, state="readonly")
+        self._target_entry.pack(side="left")
+        ModernButton(
+            target_row,
+            text=_("prep_target_select"),
+            style="ghost",
+            command=self._open_target_picker,
+            bg=C.BG_CARD,
+            width=110,
+        ).pack(side="left", padx=(8, 0))
 
         tk.Label(parent, text="Test size", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=2, sticky="w")
         ttk.Entry(parent, textvariable=self._test_size_var, width=self._field_width).grid(row=0, column=3, padx=(8, 16), sticky="w")
@@ -193,18 +197,76 @@ class PreprocessingView(ttk.Frame):
         self._log_panel = LogPanel(card.inner, height=7, label=_("prep_log_title"), bg_outer=C.BG_CARD)
         self._log_panel.pack(fill="both", expand=True, pady=(12, 0))
 
-    def _toggle_target_mode(self):
-        current = self._target_list.cget("selectmode")
-        if current == "extended":
-            self._target_list.configure(selectmode="browse")
-            self._target_mode_btn.configure(text="Mode: Single")
-            sel = self._target_list.curselection()
-            if len(sel) > 1:
-                self._target_list.selection_clear(0, "end")
-                self._target_list.selection_set(sel[0])
+    def _open_target_picker(self):
+        if not self._target_choices:
+            return
+
+        win = tk.Toplevel(self)
+        win.title(_("prep_target_select_title"))
+        win.transient(self.winfo_toplevel())
+        win.grab_set()
+        win.resizable(False, False)
+
+        body = tk.Frame(win, bg=C.BG_CARD)
+        body.pack(fill="both", expand=True, padx=16, pady=16)
+
+        list_height = min(10, max(4, len(self._target_choices)))
+        lb = tk.Listbox(
+            body,
+            selectmode="extended",
+            exportselection=False,
+            height=list_height,
+            width=max(24, self._field_width),
+        )
+        lb.pack(fill="both", expand=True)
+
+        for col in self._target_choices:
+            lb.insert("end", col)
+
+        for i, col in enumerate(self._target_choices):
+            if col in self._target_values:
+                lb.selection_set(i)
+
+        def apply():
+            selected = [lb.get(i) for i in lb.curselection()]
+            self._set_target_selection(selected)
+            win.destroy()
+
+        actions = tk.Frame(body, bg=C.BG_CARD)
+        actions.pack(fill="x", pady=(12, 0))
+        ModernButton(
+            actions,
+            text=_("prep_target_select_cancel"),
+            style="ghost",
+            command=win.destroy,
+            bg=C.BG_CARD,
+            width=100,
+        ).pack(side="right")
+        ModernButton(
+            actions,
+            text=_("prep_target_select_apply"),
+            style="primary",
+            command=apply,
+            bg=C.BG_CARD,
+            width=100,
+        ).pack(side="right", padx=(0, 8))
+
+    def _set_target_selection(self, targets: list[str]):
+        clustering_label = _("prep_clustering")
+        valid = [t for t in targets if t in self._target_choices]
+        if not valid:
+            self._target_values = []
+            self._target_var.set("")
+            return
+
+        if clustering_label in valid:
+            valid = [clustering_label]
+
+        self._target_values = valid
+        if valid == [clustering_label]:
+            self._target_var.set(clustering_label)
         else:
-            self._target_list.configure(selectmode="extended")
-            self._target_mode_btn.configure(text="Mode: Multi")
+            self._target_var.set(", ".join(valid))
 
     def on_enter(self):
         self._refresh_columns_list()
@@ -238,8 +300,7 @@ class PreprocessingView(ttk.Frame):
     def _parse_options(self) -> dict:
         options = {}
 
-        indexes = self._target_list.curselection()
-        targets = [self._target_list.get(i) for i in indexes if self._target_list.get(i) != _("prep_clustering")]
+        targets = [t for t in self._target_values if t != _("prep_clustering")]
         if targets:
             options.setdefault("target_columns", targets)
 
@@ -372,17 +433,14 @@ class PreprocessingView(ttk.Frame):
         self._set_status(_("prep_code_exported"))
 
     def _prepare_training(self):
-        indexes = self._target_list.curselection()
-        targets = [self._target_list.get(i) for i in indexes]
-
-        if not targets:
+        if not self._target_values:
             show_error(_("prep_err_title"), _("prep_err_target"))
             return
 
-        if _("prep_clustering") in targets:
+        if _("prep_clustering") in self._target_values:
             self._service.set_target_columns([])
         else:
-            self._service.set_target_columns(targets)
+            self._service.set_target_columns(list(self._target_values))
         try:
             test_size = float(self._test_size_var.get())
             random_state = int(self._random_state_var.get())
@@ -419,18 +477,20 @@ class PreprocessingView(ttk.Frame):
         for col in columns:
             self._columns_list.insert("end", col)
 
-        # Update target list
-        self._target_list.delete(0, "end")
-        for col in columns + [_("prep_clustering")]:
-            self._target_list.insert("end", col)
-
-        if self._service.target_columns:
-            for i, col in enumerate(columns):
-                if col in self._service.target_columns:
-                    self._target_list.selection_set(i)
-        elif self._service.target_columns is None or not self._service.target_columns:
-            # Select clustering
-            self._target_list.selection_set("end")
+        # Update target dropdown
+        values = columns + [_("prep_clustering")]
+        self._target_choices = values
+        current = [c for c in self._target_values if c in columns]
+        if current:
+            self._set_target_selection(current)
+        elif self._service.target_columns:
+            selected = [c for c in self._service.target_columns if c in columns]
+            if selected:
+                self._set_target_selection(selected)
+            else:
+                self._set_target_selection([_("prep_clustering")])
+        else:
+            self._set_target_selection([_("prep_clustering")])
 
     def _refresh_pipeline(self):
         self._pipeline_table.tree.delete(*self._pipeline_table.tree.get_children())
@@ -546,11 +606,7 @@ class PreprocessingView(ttk.Frame):
         def _step4_set_options():
             if "target_columns" in opts:
                 targets = opts["target_columns"]
-                self._target_list.selection_clear(0, "end")
-                for target in targets:
-                    for i in range(self._target_list.size()):
-                        if self._target_list.get(i) == target:
-                            self._target_list.selection_set(i)
+                self._set_target_selection(list(targets) if targets else [_("prep_clustering")])
             if "test_size" in opts:
                 self._test_size_var.set(str(opts["test_size"]))
             if "random_state" in opts:
