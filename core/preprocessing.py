@@ -33,7 +33,7 @@ class PreprocessingResult:
     numeric_feature_names: list[str] = field(default_factory=list)
     categorical_feature_names: list[str] = field(default_factory=list)
     feature_schema: list[dict] = field(default_factory=list)
-    target_name: str = ""
+    target_names: list[str] = field(default_factory=list)
     task_type: str = ""  # "classification" or "regression"
     label_encoder: LabelEncoder | None = None
     encoders: dict[str, Any] = field(default_factory=dict)
@@ -41,8 +41,18 @@ class PreprocessingResult:
     summary: dict = field(default_factory=dict)
 
 
-def _detect_task_type(y: pd.Series) -> str:
-    """Determine if the target column represents a classification or regression task."""
+def _detect_task_type(y: pd.Series | pd.DataFrame) -> str:
+    """Determine if the target represents a classification or regression task."""
+    if isinstance(y, pd.DataFrame) and y.shape[1] > 1:
+        # For simplicity, if multi-target, assume classification if any column looks categorical
+        for col in y.columns:
+            if y[col].dtype == "object" or y[col].dtype.name == "category" or y[col].nunique() <= 20:
+                return "classification"
+        return "regression"
+
+    if isinstance(y, pd.DataFrame):
+        y = y.iloc[:, 0]
+
     if y.dtype == "object" or y.dtype.name == "category":
         return "classification"
     n_unique = y.nunique()
@@ -53,7 +63,7 @@ def _detect_task_type(y: pd.Series) -> str:
 
 def preprocess_data(
     df: pd.DataFrame,
-    target_column: str | None,
+    target_columns: list[str] | None,
     test_size: float = DEFAULT_TEST_SIZE,
     random_state: int = DEFAULT_RANDOM_STATE,
     options: dict[str, Any] | None = None,
@@ -75,8 +85,8 @@ def preprocess_data(
     ----------
     df : pd.DataFrame
         The raw DataFrame.
-    target_column : str
-        Name of the target column.
+    target_columns : list[str] | None
+        List of target column names.
     test_size : float
         Proportion of the data reserved for testing.
     random_state : int
@@ -88,7 +98,7 @@ def preprocess_data(
         Dataclass with all the outputs needed for training.
     """
     result = PreprocessingResult()
-    result.target_name = target_column or ""
+    result.target_names = target_columns or []
     options = options or {}
 
     apply_imputation = options.get("apply_imputation", True)
@@ -102,15 +112,19 @@ def preprocess_data(
     numeric_fill_value = options.get("numeric_fill_value", 0)
     categorical_fill_value = options.get("categorical_fill_value", "missing")
 
-    if target_column and target_column not in df.columns:
-        raise ValueError(f"Target column '{target_column}' not found in DataFrame.")
+    if target_columns:
+        for col in target_columns:
+            if col not in df.columns:
+                raise ValueError(f"Target column '{col}' not found in DataFrame.")
 
     # ------------------------------------------------------------------
     # 1. Separate X / y
     # ------------------------------------------------------------------
-    if target_column:
-        X = df.drop(columns=[target_column]).copy()
-        y = df[target_column].copy()
+    if target_columns:
+        X = df.drop(columns=target_columns).copy()
+        y = df[target_columns].copy()
+        if len(target_columns) == 1:
+            y = y.iloc[:, 0]
     else:
         X = df.copy()
         y = None
@@ -153,24 +167,36 @@ def preprocess_data(
             logger.info("Imputed %d categorical columns (%s strategy)", len(categorical_cols), categorical_impute_strategy)
 
     # Handle missing target values
-    if y is not None and y.isnull().any():
-        n_missing = y.isnull().sum()
-        mask = y.notnull()
-        X = X[mask]
-        y = y[mask]
-        logger.warning("Dropped %d rows with missing target values", n_missing)
+    if y is not None:
+        if isinstance(y, pd.DataFrame):
+            missing_mask = y.isnull().any(axis=1)
+            if missing_mask.any():
+                n_missing = int(missing_mask.sum())
+                X = X.loc[~missing_mask]
+                y = y.loc[~missing_mask]
+                logger.warning("Dropped %d rows with missing target values", n_missing)
+        else:
+            if y.isnull().any():
+                n_missing = int(y.isnull().sum())
+                mask = y.notnull()
+                X = X[mask]
+                y = y[mask]
+                logger.warning("Dropped %d rows with missing target values", n_missing)
 
     # ------------------------------------------------------------------
     # 4. Encode target (classification only)
     # ------------------------------------------------------------------
-    if result.task_type == "classification":
-        le = LabelEncoder()
-        y = pd.Series(le.fit_transform(y.astype(str)), name=target_column)
-        result.label_encoder = le
-        logger.info(
-            "Encoded target: %d classes → %s",
-            len(le.classes_), list(le.classes_),
-        )
+    if result.task_type == "classification" and y is not None:
+        if isinstance(y, pd.Series):
+            le = LabelEncoder()
+            y = pd.Series(le.fit_transform(y.astype(str)), name=target_columns[0], index=y.index)
+            result.label_encoder = le
+            logger.info(
+                "Encoded target: %d classes → %s",
+                len(le.classes_), list(le.classes_),
+            )
+        else:
+            logger.info("Multi-column target detected, skipping LabelEncoder.")
 
     # ------------------------------------------------------------------
     # 5. One-hot encode categorical features

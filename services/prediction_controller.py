@@ -89,7 +89,7 @@ class PredictionController:
                     "numeric_feature_names": pr.numeric_feature_names if pr else [],
                     "categorical_feature_names": pr.categorical_feature_names if pr else [],
                     "feature_schema": pr.feature_schema if pr else [],
-                    "target_column": self.pipeline.target_column,
+                    "target_columns": self.pipeline.target_columns,
                     "preprocessing_artifacts": {
                         "num_imputer": pr.encoders.get("num_imputer") if pr else None,
                         "cat_imputer": pr.encoders.get("cat_imputer") if pr else None,

@@ -260,11 +260,11 @@ class TrainingView(ttk.Frame):
         pr = self._service.preprocessing_result
         if pr is None:
             self._task_var.set("-")
-            self._target_var.set(self._service.target_column or "-")
+            self._target_var.set(", ".join(self._service.target_columns) if self._service.target_columns else "-")
             self._shape_var.set("-")
             return
         self._task_var.set(pr.task_type)
-        self._target_var.set(self._service.target_column or "-")
+        self._target_var.set(", ".join(self._service.target_columns) if self._service.target_columns else "-")
         self._shape_var.set(f"{pr.X_train.shape[0]} x {pr.X_train.shape[1]}")
 
     def _refresh_model_list(self):
@@ -466,7 +466,7 @@ class TrainingView(ttk.Frame):
                 )
                 self.after(0, self._on_train_done)
             except Exception as exc:
-                self.after(0, lambda: show_error(_("train_err_title"), str(exc)))
+                self.after(0, lambda exc=exc: show_error(_("train_err_title"), str(exc)))
 
         threading.Thread(target=thread, daemon=True).start()
 

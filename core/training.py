@@ -221,6 +221,7 @@ def train_all_models(
     results = {}
     total = len(names)
     for idx, name in enumerate(names, 1):
+        elapsed = None
         try:
             custom_params = model_params_map.get(name)
             model, elapsed = train_model(name, X_train, y_train, task_type, custom_params=custom_params)

@@ -6,6 +6,7 @@ around an existing PipelineService method — no new ML logic.
 """
 
 import json
+import threading
 import traceback
 import pandas as pd
 
@@ -51,17 +52,18 @@ TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
         "function": {
-            "name": "set_target_column",
-            "description": "Set the target column for supervised learning.",
+            "name": "set_target_columns",
+            "description": "Set the target columns for supervised learning.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "column": {
-                        "type": "string",
-                        "description": "Name of the column to use as the prediction target.",
+                    "columns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of target column names (e.g. ['label'])"
                     }
                 },
-                "required": ["column"],
+                "required": ["columns"],
             },
         },
     },
@@ -116,7 +118,12 @@ TOOL_SCHEMAS: list[dict] = [
         "type": "function",
         "function": {
             "name": "add_preprocessing_step",
-            "description": "Add a preprocessing step to the dynamic pipeline workspace. Use get_preprocessing_catalog first to see valid categories and methods.",
+            "description": (
+                "CRITICAL: Use this tool to visually construct the pipeline in the UI. "
+                "Adds a single preprocessing step to the dynamic pipeline workspace. "
+                "You MUST call this tool for EACH step you want to add. "
+                "Use get_preprocessing_catalog first to see valid categories and methods."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -126,7 +133,7 @@ TOOL_SCHEMAS: list[dict] = [
                     },
                     "method": {
                         "type": "string",
-                        "description": "The specific method name (e.g., 'drop_missing', 'onehot').",
+                        "description": "The specific method name (e.g., 'impute', 'one_hot_encoding').",
                     },
                     "columns": {
                         "type": "array",
@@ -215,17 +222,21 @@ TOOL_SCHEMAS: list[dict] = [
 class ToolExecutor:
     """Executes agent tools by dispatching to PipelineService methods."""
 
-    def __init__(self, pipeline: PipelineService, navigate_fn=None):
+    def __init__(self, pipeline: PipelineService, navigate_fn=None, get_preprocessing_view=None):
         self.pipeline = pipeline
         self.navigate_fn = navigate_fn
+        self._get_preprocessing_view = get_preprocessing_view
 
-    def execute(self, tool_name: str, arguments: dict) -> str:
+    def execute(self, tool_name: str, arguments: dict | None) -> str:
         """Execute a tool and return a string result for the LLM."""
         try:
             handler = getattr(self, f"_tool_{tool_name}", None)
             if handler is None:
                 return f"Error: Unknown tool '{tool_name}'"
-            result = handler(**arguments)
+            
+            # Gemini sometimes returns None for empty arguments
+            args = arguments or {}
+            result = handler(**args)
             logger.info("Tool '%s' executed successfully", tool_name)
             return result
         except Exception as exc:
@@ -241,7 +252,7 @@ class ToolExecutor:
             "file": p.filepath or "None",
             "rows": len(p.dataframe) if p.dataframe is not None else 0,
             "columns": len(p.dataframe.columns) if p.dataframe is not None else 0,
-            "target_column": p.target_column or "Not set",
+            "target_columns": ", ".join(p.target_columns) if p.target_columns else "Not set",
             "preprocessing_done": p.preprocessing_result is not None,
             "task_type": (
                 p.preprocessing_result.task_type
@@ -277,12 +288,13 @@ class ToolExecutor:
             return "No data loaded."
         return json.dumps(cols)
 
-    def _tool_set_target_column(self, column: str) -> str:
-        cols = self.pipeline.get_columns()
-        if column not in cols:
-            return f"Column '{column}' not found. Available: {cols}"
-        self.pipeline.set_target_column(column)
-        return f"Target column set to '{column}'."
+    def _tool_set_target_columns(self, columns: list[str]) -> str:
+        avail_cols = self.pipeline.get_columns()
+        for col in columns:
+            if col not in avail_cols:
+                return f"Column '{col}' not found. Available: {avail_cols}"
+        self.pipeline.set_target_columns(columns)
+        return f"Target columns set to {columns}."
 
     def _tool_get_preprocessing_recommendations(self) -> str:
         try:
@@ -328,13 +340,54 @@ class ToolExecutor:
         try:
             if options is None:
                 options = {}
-            self.pipeline.add_preprocessing_step(category, method, columns, options)
-            
-            # If we have a navigate function, we can try to refresh the preprocessing view
-            if self.navigate_fn:
-                # Trigger a refresh by navigating to the same view
+
+            # Try visual UI automation first
+            view = self._get_preprocessing_view() if self._get_preprocessing_view else None
+
+            if view is not None and self.navigate_fn:
+                # Navigate to the preprocessing view so the user can watch
                 self.navigate_fn("preprocessing")
-                
+
+                # Thread-safe synchronisation: schedule on Tk main thread,
+                # then wait for the on_done callback to fire.
+                done_event = threading.Event()
+                error_holder: list[str] = []
+
+                def _on_done():
+                    done_event.set()
+
+                def _schedule():
+                    try:
+                        view.agent_add_step(
+                            category=category,
+                            method=method,
+                            columns=columns,
+                            options=options,
+                            delay_ms=300,
+                            on_done=_on_done,
+                        )
+                    except Exception as exc:
+                        error_holder.append(str(exc))
+                        done_event.set()
+
+                # Schedule on the Tk main thread
+                view.after(0, _schedule)
+
+                # Wait up to 15 seconds for the UI animation to finish
+                done_event.wait(timeout=15)
+
+                if error_holder:
+                    return f"[FAIL] Cannot add step visually: {error_holder[0]}"
+
+                return (
+                    f"[OK] Step visually added to dynamic pipeline: "
+                    f"{category} -> {method} on {columns}."
+                )
+
+            # Fallback: no view available — add silently
+            self.pipeline.add_preprocessing_step(category, method, columns, options)
+            if self.navigate_fn:
+                self.navigate_fn("preprocessing")
             return f"[OK] Step added to dynamic pipeline: {category} -> {method} on {len(columns)} columns."
         except Exception as exc:
             return f"[FAIL] Cannot add step: {exc}"

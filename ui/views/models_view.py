@@ -129,7 +129,7 @@ class ModelsView(ttk.Frame):
                 m.get("filename", "?"),
                 m.get("model_class", "?"),
                 m.get("task_type", "?"),
-                m.get("target_column", "?"),
+                ", ".join(m.get("target_columns", [])) if m.get("target_columns") else "?",
                 m.get("size_kb", "?"),
                 m.get("saved_at", "?")[:19] if m.get("saved_at") else "?",
             ), tags=(m.get("filepath", ""),))

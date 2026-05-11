@@ -179,8 +179,8 @@ class FairnessView(ttk.Frame):
                 # Get sensitive attribute values for test set
                 # We need to align with the test split indices
                 # Use the original dataframe to get the sensitive column
-                target_col = self._service.target_column
-                X_original = df.drop(columns=[target_col])
+                target_col = self._service.target_columns[0] if self._service.target_columns else None
+                X_original = df.drop(columns=self._service.target_columns)
 
                 # Total samples before split
                 total = len(df)

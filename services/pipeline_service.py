@@ -11,7 +11,7 @@ from dataclasses import asdict
 import pandas as pd
 import numpy as np
 
-from core.data_loader import load_tabular, get_summary, detect_target_column
+from core.data_loader import load_tabular, get_summary, detect_target_columns
 from core.preprocessing import preprocess_data, PreprocessingResult
 from core.preprocessing_module import PreprocessingWorkspace, StepSpec, prettify_pipeline_help
 from core.training import train_model, train_all_models, get_available_models, get_model_param_schema
@@ -34,7 +34,7 @@ class PipelineService:
     dataframe : pd.DataFrame | None
     data_summary : dict | None
     filepath : str | None
-    target_column : str | None
+    target_columns : list[str]
     preprocessing_result : PreprocessingResult | None
     trained_models : dict[str, dict] | None
     evaluation_results : dict[str, dict] | None
@@ -60,7 +60,7 @@ class PipelineService:
         self.dataframe: pd.DataFrame | None = None
         self.data_summary: dict | None = None
         self.filepath: str | None = None
-        self.target_column: str | None = None
+        self.target_columns: list[str] = []
         self.preprocessing_result: PreprocessingResult | None = None
         self.preprocessing_workspace = PreprocessingWorkspace()
         self.trained_models: dict | None = None
@@ -80,7 +80,7 @@ class PipelineService:
         self.filepath = filepath
         self.dataframe = load_tabular(filepath, has_header=has_header)
         self.data_summary = get_summary(self.dataframe)
-        self.target_column = detect_target_column(self.dataframe)
+        self.target_columns = detect_target_columns(self.dataframe)
         self.preprocessing_workspace.reset(self.dataframe)
 
         # Clear downstream state
@@ -124,8 +124,10 @@ class PipelineService:
         if outcomes:
             self.dataframe = self.preprocessing_workspace.current_df.copy(deep=True)
             self.data_summary = get_summary(self.dataframe)
-            if self.target_column not in self.dataframe.columns:
-                self.target_column = detect_target_column(self.dataframe)
+            # Check if any target column no longer exists
+            missing = [c for c in self.target_columns if c not in self.dataframe.columns]
+            if missing:
+                self.target_columns = detect_target_columns(self.dataframe)
         return [{"ok": o.ok, "message": o.message, "details": o.details} for o in outcomes]
 
     def preprocessing_undo(self) -> bool:
@@ -152,7 +154,8 @@ class PipelineService:
         self.preprocessing_workspace.export_pipeline_code(filepath)
 
     def get_preprocessing_recommendations(self) -> list[str]:
-        return self.preprocessing_workspace.recommend_steps(self.target_column)
+        target = self.target_columns[0] if self.target_columns else None
+        return self.preprocessing_workspace.recommend_steps(target)
 
     def get_preprocessing_issues(self) -> dict:
         return self.preprocessing_workspace.dataset_issues()
@@ -173,9 +176,10 @@ class PipelineService:
             return self.dataframe.columns.tolist()
         return []
 
-    def set_target_column(self, column: str | None):
-        self.target_column = column
-        logger.info("Target column set to: '%s'", column)
+    def set_target_columns(self, columns: list[str]):
+        self.target_columns = list(columns)
+        self.preprocessing_result = None
+        logger.info("Target columns set to: %s", columns)
 
     # ------------------------------------------------------------------
     # Step 2: Preprocessing
@@ -189,12 +193,12 @@ class PipelineService:
         """Run the preprocessing pipeline on the loaded data."""
         if self.dataframe is None:
             raise RuntimeError("No data loaded. Please load a CSV file first.")
-        if self.target_column is None:
+        if not self.target_columns:
             logger.info("No target selected — switching to clustering mode")
 
         self.preprocessing_result = preprocess_data(
             self.dataframe,
-            target_column=self.target_column,
+            target_columns=self.target_columns,
             test_size=test_size,
             random_state=random_state,
             options=options,
@@ -242,6 +246,10 @@ class PipelineService:
             raise RuntimeError("Data not preprocessed yet.")
 
         pr = self.preprocessing_result
+        y_train = pr.y_train
+        if y_train is not None and hasattr(y_train, "ndim"):
+            if y_train.ndim > 1 and y_train.shape[1] > 1:
+                raise ValueError("Multiple target columns detected. Select a single target before training.")
         self.training_log = ["Démarrage entraînement..."]
         self.trained_models = train_all_models(
             pr.X_train, pr.y_train, pr.task_type,
@@ -409,8 +417,8 @@ class PipelineService:
 
         metadata = {
             "model_name": model_name,
-            "task_type": self.preprocessing_result.task_type if self.preprocessing_result else "unknown",
-            "target_column": self.target_column,
+            "task": self.preprocessing_result.task_type if self.preprocessing_result else "unknown",
+            "target_columns": self.target_columns,
             "feature_names": (
                 self.preprocessing_result.feature_names
                 if self.preprocessing_result else []

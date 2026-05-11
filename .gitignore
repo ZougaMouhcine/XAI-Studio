@@ -19,5 +19,8 @@ venv/
 models/saved/*.pkl
 catboost_info/
 
+# Ignore local chat history
+data/chats/*.json
+
 # Ignore local agent configuration (contains API keys)
 config/agent.json

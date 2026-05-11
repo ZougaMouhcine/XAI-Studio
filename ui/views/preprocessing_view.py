@@ -101,9 +101,17 @@ class PreprocessingView(ttk.Frame):
             parent.columnconfigure(i, weight=0)
         parent.columnconfigure(7, weight=1)
 
-        tk.Label(parent, text=_("prep_target"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=0, sticky="w")
-        self._target_combo = ttk.Combobox(parent, textvariable=self._target_var, width=self._field_width, state="readonly")
-        self._target_combo.grid(row=0, column=1, padx=(8, 16), sticky="w")
+        target_label_frame = tk.Frame(parent, bg=C.BG_CARD)
+        target_label_frame.grid(row=0, column=0, sticky="nw")
+        tk.Label(target_label_frame, text=_("prep_target"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        self._target_mode_btn = tk.Button(
+            target_label_frame, text="Mode: Multi", font=F.TINY, bg=C.BG_CARD, fg=C.ACCENT,
+            bd=0, cursor="hand2", command=self._toggle_target_mode
+        )
+        self._target_mode_btn.pack(anchor="w", pady=(2, 0))
+
+        self._target_list = tk.Listbox(parent, selectmode="extended", height=3, exportselection=False, width=self._field_width)
+        self._target_list.grid(row=0, column=1, padx=(8, 16), sticky="w")
 
         tk.Label(parent, text="Test size", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=2, sticky="w")
         ttk.Entry(parent, textvariable=self._test_size_var, width=self._field_width).grid(row=0, column=3, padx=(8, 16), sticky="w")
@@ -185,16 +193,20 @@ class PreprocessingView(ttk.Frame):
         self._log_panel = LogPanel(card.inner, height=7, label=_("prep_log_title"), bg_outer=C.BG_CARD)
         self._log_panel.pack(fill="both", expand=True, pady=(12, 0))
 
-    def on_enter(self):
-        columns = self._service.get_columns()
-        self._target_combo["values"] = columns + [_("prep_clustering")]
-        if self._service.target_column and self._service.target_column in columns:
-            self._target_var.set(self._service.target_column)
-        elif self._service.target_column is None:
-            self._target_var.set(_("prep_clustering"))
-        elif columns:
-            self._target_var.set(columns[-1])
+    def _toggle_target_mode(self):
+        current = self._target_list.cget("selectmode")
+        if current == "extended":
+            self._target_list.configure(selectmode="browse")
+            self._target_mode_btn.configure(text="Mode: Single")
+            sel = self._target_list.curselection()
+            if len(sel) > 1:
+                self._target_list.selection_clear(0, "end")
+                self._target_list.selection_set(sel[0])
+        else:
+            self._target_list.configure(selectmode="extended")
+            self._target_mode_btn.configure(text="Mode: Multi")
 
+    def on_enter(self):
         self._refresh_columns_list()
         self._refresh_pipeline()
         self._refresh_preview()
@@ -226,9 +238,10 @@ class PreprocessingView(ttk.Frame):
     def _parse_options(self) -> dict:
         options = {}
 
-        target = self._target_var.get().strip()
-        if target and target != _("prep_clustering"):
-            options.setdefault("target_column", target)
+        indexes = self._target_list.curselection()
+        targets = [self._target_list.get(i) for i in indexes if self._target_list.get(i) != _("prep_clustering")]
+        if targets:
+            options.setdefault("target_columns", targets)
 
         try:
             options.setdefault("test_size", float(self._test_size_var.get()))
@@ -270,6 +283,7 @@ class PreprocessingView(ttk.Frame):
 
         if out["ok"]:
             self._set_status(out["message"])
+            self._refresh_columns_list()
             self._refresh_preview()
             self._refresh_logs()
             self._display_visual_if_any(out.get("details", {}))
@@ -287,6 +301,7 @@ class PreprocessingView(ttk.Frame):
         ok = sum(1 for o in outcomes if o["ok"])
         total = len(outcomes)
         self._set_status(_("prep_pipe_exec").format(ok, total))
+        self._refresh_columns_list()
         self._refresh_preview()
         self._refresh_logs()
         self._refresh_pipeline()
@@ -295,6 +310,7 @@ class PreprocessingView(ttk.Frame):
     def _undo(self):
         if self._service.preprocessing_undo():
             self._set_status(_("prep_undo_done"))
+            self._refresh_columns_list()
             self._refresh_preview()
             self._refresh_logs()
         else:
@@ -303,6 +319,7 @@ class PreprocessingView(ttk.Frame):
     def _redo(self):
         if self._service.preprocessing_redo():
             self._set_status(_("prep_redo_done"))
+            self._refresh_columns_list()
             self._refresh_preview()
             self._refresh_logs()
         else:
@@ -355,14 +372,17 @@ class PreprocessingView(ttk.Frame):
         self._set_status(_("prep_code_exported"))
 
     def _prepare_training(self):
-        target = self._target_var.get().strip()
-        if not target:
+        indexes = self._target_list.curselection()
+        targets = [self._target_list.get(i) for i in indexes]
+
+        if not targets:
             show_error(_("prep_err_title"), _("prep_err_target"))
             return
-        if target == _("prep_clustering"):
-            self._service.set_target_column(None)
+
+        if _("prep_clustering") in targets:
+            self._service.set_target_columns([])
         else:
-            self._service.set_target_column(target)
+            self._service.set_target_columns(targets)
         try:
             test_size = float(self._test_size_var.get())
             random_state = int(self._random_state_var.get())
@@ -392,9 +412,25 @@ class PreprocessingView(ttk.Frame):
         return int(item["values"][0]) - 1
 
     def _refresh_columns_list(self):
+        columns = self._service.get_columns()
+
+        # Update columns list
         self._columns_list.delete(0, "end")
-        for col in self._service.get_columns():
+        for col in columns:
             self._columns_list.insert("end", col)
+
+        # Update target list
+        self._target_list.delete(0, "end")
+        for col in columns + [_("prep_clustering")]:
+            self._target_list.insert("end", col)
+
+        if self._service.target_columns:
+            for i, col in enumerate(columns):
+                if col in self._service.target_columns:
+                    self._target_list.selection_set(i)
+        elif self._service.target_columns is None or not self._service.target_columns:
+            # Select clustering
+            self._target_list.selection_set("end")
 
     def _refresh_pipeline(self):
         self._pipeline_table.tree.delete(*self._pipeline_table.tree.get_children())
@@ -448,6 +484,129 @@ class PreprocessingView(ttk.Frame):
             _ = left_width
         except Exception:
             pass
+
+    # ── Agent UI Automation ─────────────────────────────────────────────
+
+    def agent_add_step(
+        self,
+        category: str,
+        method: str,
+        columns: list[str],
+        options: dict | None = None,
+        delay_ms: int = 300,
+        on_done=None,
+    ):
+        """Visually construct a single pipeline step, mimicking user interaction.
+
+        Scheduled entirely on the Tk main thread via `self.after()` chaining.
+        Each sub-action (set category, set method, select columns, flash + add)
+        is separated by *delay_ms* milliseconds so the user can follow along.
+
+        Parameters
+        ----------
+        category : str
+            Preprocessing category key (e.g. ``"data_cleaning"``).
+        method : str
+            Method name within the category (e.g. ``"impute"``).
+        columns : list[str]
+            Column names to select in the listbox.
+        options : dict, optional
+            Extra options (target_column, test_size, random_state, …).
+        delay_ms : int
+            Delay between each visual sub-step.
+        on_done : callable, optional
+            Callback invoked (with no args) after the step has been added.
+        """
+        opts = options or {}
+
+        # Step 1 — Set category dropdown & refresh method list
+        def _step1_set_category():
+            self._category_var.set(category)
+            self._on_category_change()
+            self.after(delay_ms, _step2_set_method)
+
+        # Step 2 — Set method dropdown
+        def _step2_set_method():
+            self._method_var.set(method)
+            self.after(delay_ms, _step3_select_columns)
+
+        # Step 3 — Select columns in listbox
+        def _step3_select_columns():
+            self._columns_list.selection_clear(0, "end")
+            all_items = self._columns_list.get(0, "end")
+            for col in columns:
+                for idx, item in enumerate(all_items):
+                    if item == col:
+                        self._columns_list.selection_set(idx)
+                        self._columns_list.see(idx)
+                        break
+            self.after(delay_ms, _step4_set_options)
+
+        # Step 4 — Apply options to UI fields
+        def _step4_set_options():
+            if "target_columns" in opts:
+                targets = opts["target_columns"]
+                self._target_list.selection_clear(0, "end")
+                for target in targets:
+                    for i in range(self._target_list.size()):
+                        if self._target_list.get(i) == target:
+                            self._target_list.selection_set(i)
+            if "test_size" in opts:
+                self._test_size_var.set(str(opts["test_size"]))
+            if "random_state" in opts:
+                self._random_state_var.set(str(opts["random_state"]))
+            self.after(delay_ms, _step5_flash_and_add)
+
+        # Step 5 — Flash the Add button, then add step
+        def _step5_flash_and_add():
+            self._add_step()
+            if on_done:
+                on_done()
+
+        # Kick off the chain
+        self.after(0, _step1_set_category)
+
+    def agent_add_steps(
+        self,
+        steps: list[dict],
+        delay_ms: int = 400,
+        on_all_done=None,
+    ):
+        """Queue multiple steps for sequential visual construction.
+
+        Parameters
+        ----------
+        steps : list[dict]
+            Each dict must have ``category``, ``method``, ``columns``.
+            Optional keys: ``options``.
+        delay_ms : int
+            Delay between each visual sub-step within a single step.
+        on_all_done : callable, optional
+            Called after all steps have been added.
+        """
+        if not steps:
+            if on_all_done:
+                on_all_done()
+            return
+
+        remaining = list(steps)
+
+        def _add_next():
+            if not remaining:
+                if on_all_done:
+                    on_all_done()
+                return
+            step = remaining.pop(0)
+            self.agent_add_step(
+                category=step["category"],
+                method=step["method"],
+                columns=step.get("columns", []),
+                options=step.get("options"),
+                delay_ms=delay_ms,
+                on_done=lambda: self.after(delay_ms, _add_next),
+            )
+
+        _add_next()
 
     def _navigate_to(self, view_name: str) -> None:
         root = self.winfo_toplevel()

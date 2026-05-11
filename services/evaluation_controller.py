@@ -62,7 +62,7 @@ class EvaluationController:
                     "model_name": name,
                     "task_type": pr.task_type if pr else "unknown",
                     "feature_names": pr.feature_names if pr else [],
-                    "target_column": self.pipeline.target_column,
+                    "target_columns": self.pipeline.target_columns,
                 }
                 self.registry.register_in_memory(
                     name=name,

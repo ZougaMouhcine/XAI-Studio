@@ -279,7 +279,7 @@ class PreprocessingWorkspace:
         Path(filepath).write_text("\n".join(lines), encoding="utf-8")
         self._log(f"Pipeline exported: {filepath}")
 
-    def recommend_steps(self, target_column: str | None = None) -> list[str]:
+    def recommend_steps(self, target_columns: list[str] | None = None) -> list[str]:
         df = self.current_df
         recs: list[str] = []
         if df.empty:
@@ -301,8 +301,9 @@ class PreprocessingWorkspace:
             recs.append("Outlier Handling: detect_iqr then handle_outliers")
             recs.append("Feature Scaling: robust_scaler")
 
-        if target_column and target_column in df.columns:
-            y = df[target_column]
+        target = target_columns[0] if target_columns else None
+        if target and target in df.columns:
+            y = df[target]
             if y.nunique() <= 30 and y.dtype != float:
                 cls_dist = y.value_counts(normalize=True)
                 if len(cls_dist) > 1 and cls_dist.max() > 0.65:
@@ -580,9 +581,10 @@ class PreprocessingWorkspace:
             return StepOutcome(True, "Ordinal encoding applied", {"columns": cols})
 
         if method == "target_encoding":
-            target = opts.get("target_column")
+            targets = opts.get("target_columns")
+            target = targets[0] if targets else None
             if not target or target not in df.columns:
-                raise ValueError("target_column required for target encoding")
+                raise ValueError("target_columns required and must exist for target encoding")
             for c in cols:
                 means = df.groupby(c)[target].mean()
                 self.current_df[c] = df[c].map(means)
@@ -642,7 +644,8 @@ class PreprocessingWorkspace:
         return X, y, task
 
     def _step_feature_selection(self, method: str, columns: list[str], opts: dict[str, Any]) -> StepOutcome:
-        target = opts.get("target_column")
+        targets = opts.get("target_columns")
+        target = targets[0] if targets else None
         X, y, task = self._prepare_xy(target)
         k = int(opts.get("k", min(10, X.shape[1])))
         details: dict[str, Any] = {}
@@ -726,7 +729,8 @@ class PreprocessingWorkspace:
         return StepOutcome(True, "Feature selection executed", details)
 
     def _step_feature_reduction(self, method: str, columns: list[str], opts: dict[str, Any]) -> StepOutcome:
-        target = opts.get("target_column")
+        targets = opts.get("target_columns")
+        target = targets[0] if targets else None
         X, y, _ = self._prepare_xy(target)
         n_components = int(opts.get("n_components", 2))
         replace_features = bool(opts.get("replace_features", False))
@@ -772,9 +776,12 @@ class PreprocessingWorkspace:
         if not IMBLEARN_AVAILABLE and method in {"random_oversampling", "random_undersampling", "smote", "adasyn"}:
             raise RuntimeError("imbalanced-learn is not installed")
 
-        target = opts.get("target_column")
-        if not target or target not in self.current_df.columns:
-            raise ValueError("target_column required for balancing")
+        targets = opts.get("target_columns")
+        if not targets:
+            raise ValueError("target_columns not found")
+        target = targets[0]
+        if target not in self.current_df.columns:
+            raise ValueError("target column not found in df for balancing")
 
         X, y, _ = self._prepare_xy(target)
         before = pd.Series(y).value_counts().to_dict()
@@ -888,7 +895,7 @@ def prettify_pipeline_help() -> str:
         """
         Format options JSON examples:
         {"strategy": "median"}
-        {"target_column": "label", "k": 10}
+        {"target_columns": ["label"], "k": 10}
         {"detector": "detect_iqr", "action": "cap_floor", "lower_q": 0.01, "upper_q": 0.99}
         """
     ).strip()

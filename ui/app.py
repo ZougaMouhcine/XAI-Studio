@@ -228,6 +228,7 @@ class XAIStudioApp:
             gemini_model=config.get("gemini_model", "gemini-2.5-flash"),
             navigate_fn=self._show_view,
             preferred_provider=config.get("preferred_provider", ""),
+            get_preprocessing_view=lambda: self._views.get("preprocessing"),
         )
 
     def change_language(self, lang_code=None):

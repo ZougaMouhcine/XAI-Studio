@@ -149,7 +149,7 @@ class DataView(ttk.Frame):
     def _update_info(self, filepath, df):
         name = os.path.basename(filepath)
         n, c = df.shape
-        target = self._service.target_column or "—"
+        target = ", ".join(self._service.target_columns) if self._service.target_columns else "—"
         self._info_name.configure(text=name, fg=C.TEXT)
         header_mode = _("data_with_headers") if self._has_header_var.get() else _("data_no_headers")
         self._info_detail.configure(
@@ -180,7 +180,7 @@ class DataView(ttk.Frame):
                               col_widths=widths, height=min(len(df), 18))
         stv.pack(fill="both", expand=True)
 
-        for _, row in df.head(100).iterrows():
+        for idx, row in df.head(100).iterrows():
             stv.tree.insert("", "end", values=[str(v) for v in row])
 
         self._rows_label.configure(text=f"{_('data_displaying').format(min(len(df), 100), len(df))}")

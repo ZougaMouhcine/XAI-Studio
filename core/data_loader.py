@@ -132,7 +132,7 @@ def get_summary(df: pd.DataFrame) -> dict:
     return summary
 
 
-def detect_target_column(df: pd.DataFrame) -> str | None:
+def detect_target_columns(df: pd.DataFrame) -> list[str]:
     """
     Heuristic to detect the most likely target column.
 
@@ -142,19 +142,19 @@ def detect_target_column(df: pd.DataFrame) -> str | None:
 
     Returns
     -------
-    str or None
-        Name of the detected target column, or None if DataFrame is empty.
+    list[str]
+        List of detected target columns, or empty list if DataFrame is empty.
     """
     if df.columns.size == 0:
-        return None
+        return []
 
     known_targets = ["target", "label", "class", "y", "output", "result"]
     for col in df.columns:
         if col.strip().lower() in known_targets:
             logger.info("Auto-detected target column: '%s' (name match)", col)
-            return col
+            return [col]
 
     # Default: last column
     target = df.columns[-1]
     logger.info("Auto-detected target column: '%s' (last column fallback)", target)
-    return target
+    return [target]

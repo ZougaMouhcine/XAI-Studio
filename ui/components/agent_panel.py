@@ -66,6 +66,16 @@ class AgentPanel(tk.Frame):
         settings_btn.bind("<Enter>", lambda e: settings_btn.configure(fg=C.ACCENT))
         settings_btn.bind("<Leave>", lambda e: settings_btn.configure(fg=C.TEXT_MUTED))
 
+        # History button
+        history_btn = tk.Label(
+            header, text="🕒", font=scaled_font(13),
+            bg=C.BG_CARD, fg=C.TEXT_MUTED, cursor="hand2",
+        )
+        history_btn.pack(side="right", padx=(4, 0))
+        history_btn.bind("<Button-1>", lambda e: self._open_history())
+        history_btn.bind("<Enter>", lambda e: history_btn.configure(fg=C.ACCENT))
+        history_btn.bind("<Leave>", lambda e: history_btn.configure(fg=C.TEXT_MUTED))
+
         # New chat button
         new_btn = tk.Label(
             header, text="＋", font=scaled_font(14, "bold"),
@@ -246,12 +256,26 @@ class AgentPanel(tk.Frame):
         )
         lbl.pack(side="top", anchor="w")
 
-        # Edit button
-        edit_lbl = tk.Label(
-            inner, text=_("agent_edit"), font=(F.FAM, 7, "bold"), bg=C.ACCENT, fg="#e0e0e0",
+        # Actions frame (Edit / Copy)
+        actions_frame = tk.Frame(inner, bg=C.ACCENT)
+        actions_frame.pack(side="right", anchor="e", pady=(4, 0))
+
+        # Copy button
+        copy_lbl = tk.Label(
+            actions_frame, text="Copy", font=(F.FAM, 7, "bold"), bg=C.ACCENT, fg="#e0e0e0",
             cursor="hand2", pady=0,
         )
-        edit_lbl.pack(side="right", anchor="e", pady=(4, 0))
+        copy_lbl.pack(side="right", padx=(6, 0))
+        copy_lbl.bind("<Button-1>", lambda e: self._copy_prompt(content))
+        copy_lbl.bind("<Enter>", lambda e: copy_lbl.configure(fg="#ffffff"))
+        copy_lbl.bind("<Leave>", lambda e: copy_lbl.configure(fg="#e0e0e0"))
+
+        # Edit button
+        edit_lbl = tk.Label(
+            actions_frame, text=_("agent_edit"), font=(F.FAM, 7, "bold"), bg=C.ACCENT, fg="#e0e0e0",
+            cursor="hand2", pady=0,
+        )
+        edit_lbl.pack(side="right")
         edit_lbl.bind("<Button-1>", lambda e: self._edit_prompt(content))
         edit_lbl.bind("<Enter>", lambda e: edit_lbl.configure(fg="#ffffff"))
         edit_lbl.bind("<Leave>", lambda e: edit_lbl.configure(fg="#e0e0e0"))
@@ -472,6 +496,21 @@ class AgentPanel(tk.Frame):
 
     # ── Actions ──────────────────────────────────────────────────────
 
+    def _edit_prompt(self, content: str):
+        """Put the prompt back into the input box."""
+        if self._has_placeholder:
+            self._input_text.delete("1.0", "end")
+            self._input_text.configure(fg=C.TEXT)
+            self._has_placeholder = False
+        self._input_text.delete("1.0", "end")
+        self._input_text.insert("1.0", content)
+        self._input_text.focus_set()
+
+    def _copy_prompt(self, content: str):
+        """Copy the prompt to clipboard."""
+        self.clipboard_clear()
+        self.clipboard_append(content)
+
     def _new_chat(self):
         self._agent.clear_conversation()
         self._messages.clear()
@@ -482,6 +521,40 @@ class AgentPanel(tk.Frame):
     def _open_settings(self):
         from ui.components.agent_settings import AgentSettingsDialog
         AgentSettingsDialog(self.winfo_toplevel(), self._agent, self._on_settings_saved)
+
+    def _open_history(self):
+        from ui.components.agent_history import HistoryDialog
+        HistoryDialog(self.winfo_toplevel(), self._agent, self._load_chat)
+
+    def _load_chat(self, session_id: str):
+        """Load a past chat into the UI."""
+        messages = self._agent.load_conversation(session_id)
+        
+        self._messages.clear()
+        for widget in self._chat_frame.winfo_children():
+            widget.destroy()
+            
+        if not messages:
+            self._show_welcome()
+            return
+            
+        for msg in messages:
+            role = msg.get("role")
+            content = msg.get("content", "")
+            
+            if role == "system":
+                continue
+                
+            if role == "tool":
+                self._add_message("tool", f"[Tool] {msg.get('name', 'unknown')}")
+                continue
+                
+            if role == "assistant" and msg.get("tool_calls"):
+                for tc in msg["tool_calls"]:
+                    self._add_message("tool", f"[Tool] {tc.get('function', {}).get('name', 'unknown')}")
+                
+            if content:
+                self._add_message(role, content)
 
     def _on_settings_saved(self):
         """Update provider display after settings are saved."""
