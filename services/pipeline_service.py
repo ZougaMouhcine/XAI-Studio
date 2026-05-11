@@ -128,6 +128,20 @@ class PipelineService:
             missing = [c for c in self.target_columns if c not in self.dataframe.columns]
             if missing:
                 self.target_columns = detect_target_columns(self.dataframe)
+
+            split_info = self.preprocessing_workspace.splits.get("train_test")
+            if isinstance(split_info, dict) and split_info.get("X_test") is not None:
+                pr = PreprocessingResult()
+                pr.X_train = split_info.get("X_train")
+                pr.X_test = split_info.get("X_test")
+                pr.y_train = split_info.get("y_train")
+                pr.y_test = split_info.get("y_test")
+                pr.feature_names = split_info.get("feature_names", [])
+                pr.task_type = split_info.get("task", "")
+                pr.target_names = [split_info.get("target")] if split_info.get("target") else []
+                self.preprocessing_result = pr
+                if pr.target_names:
+                    self.target_columns = pr.target_names
         return [{"ok": o.ok, "message": o.message, "details": o.details} for o in outcomes]
 
     def preprocessing_undo(self) -> bool:
@@ -177,9 +191,26 @@ class PipelineService:
         return []
 
     def set_target_columns(self, columns: list[str]):
-        self.target_columns = list(columns)
+        normalized: list[str] = []
+        if self.dataframe is not None:
+            col_map = {str(c).lower(): c for c in self.dataframe.columns}
+            for col in columns:
+                if col in self.dataframe.columns:
+                    normalized.append(col)
+                    continue
+                match = col_map.get(str(col).lower())
+                if match is not None:
+                    normalized.append(match)
+                else:
+                    normalized.append(col)
+        else:
+            normalized = list(columns)
+
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        self.target_columns = [c for c in normalized if not (c in seen or seen.add(c))]
         self.preprocessing_result = None
-        logger.info("Target columns set to: %s", columns)
+        logger.info("Target columns set to: %s", self.target_columns)
 
     # ------------------------------------------------------------------
     # Step 2: Preprocessing
@@ -239,6 +270,7 @@ class PipelineService:
         self,
         selected_models: list[str] | None = None,
         model_params_map: dict[str, dict] | None = None,
+        multi_target: bool = False,
         progress_callback=None,
     ) -> dict:
         """Train models on the preprocessed data."""
@@ -246,15 +278,12 @@ class PipelineService:
             raise RuntimeError("Data not preprocessed yet.")
 
         pr = self.preprocessing_result
-        y_train = pr.y_train
-        if y_train is not None and hasattr(y_train, "ndim"):
-            if y_train.ndim > 1 and y_train.shape[1] > 1:
-                raise ValueError("Multiple target columns detected. Select a single target before training.")
         self.training_log = ["Démarrage entraînement..."]
         self.trained_models = train_all_models(
             pr.X_train, pr.y_train, pr.task_type,
             selected_models=selected_models,
             model_params_map=model_params_map,
+            multi_target=multi_target,
             progress_callback=progress_callback,
         )
 

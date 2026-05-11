@@ -455,8 +455,13 @@ class EvaluationView(ttk.Frame):
 
     def _render_plots(self, entry, metrics):
         if entry.task_type == "classification":
+            multi_cm = False
             cm = metrics.get("confusion_matrix")
             if cm is not None:
+                cm_arr = np.array(cm)
+                if cm_arr.ndim == 3:
+                    cm = cm_arr[0].tolist()
+                    multi_cm = True
                 payload = self._viz.render_confusion_matrix(cm, title="Confusion Matrix")
                 self._cm_canvas.update_figure(payload.figure)
 
@@ -471,6 +476,8 @@ class EvaluationView(ttk.Frame):
                 self._pr_canvas.update_figure(payload.figure)
 
             report = metrics.get("classification_report", "")
+            if multi_cm:
+                report = "Multi-target evaluation: showing target 1 confusion matrix.\n\n" + str(report)
             self._report_panel.set_content(report)
 
         elif entry.task_type == "regression":

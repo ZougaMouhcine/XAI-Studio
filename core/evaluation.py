@@ -62,9 +62,15 @@ def evaluate_model(
     y_pred = model.predict(X_test)
 
     if task_type == "classification":
-        metrics = _evaluate_classification(y_test, y_pred)
+        if hasattr(y_test, "ndim") and y_test.ndim > 1:
+            metrics = _evaluate_multioutput_classification(y_test, y_pred)
+        else:
+            metrics = _evaluate_classification(y_test, y_pred)
         # ROC AUC if possible
         try:
+            if hasattr(y_test, "ndim") and y_test.ndim > 1:
+                metrics["roc_auc"] = None
+                raise RuntimeError("Multi-output ROC AUC not supported")
             if hasattr(model, "predict_proba"):
                 y_score = model.predict_proba(X_test)
                 if y_score.ndim == 2 and y_score.shape[1] > 2:
@@ -77,7 +83,10 @@ def evaluate_model(
         except Exception:
             metrics["roc_auc"] = None
     elif task_type == "regression":
-        metrics = _evaluate_regression(y_test, y_pred)
+        if hasattr(y_test, "ndim") and y_test.ndim > 1:
+            metrics = _evaluate_multioutput_regression(y_test, y_pred)
+        else:
+            metrics = _evaluate_regression(y_test, y_pred)
     elif task_type == "clustering":
         metrics = _evaluate_clustering(model, X_test)
     else:
@@ -106,6 +115,48 @@ def _evaluate_classification(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     return metrics
 
 
+def _evaluate_multioutput_classification(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    per_target = {}
+    accs = []
+    precs = []
+    recs = []
+    f1s = []
+    confs = []
+    reports = {}
+
+    n_targets = y_true.shape[1]
+    for i in range(n_targets):
+        yt = y_true[:, i]
+        yp = y_pred[:, i]
+        average = "weighted"
+        acc = accuracy_score(yt, yp)
+        prec = precision_score(yt, yp, average=average, zero_division=0)
+        rec = recall_score(yt, yp, average=average, zero_division=0)
+        f1 = f1_score(yt, yp, average=average, zero_division=0)
+        per_target[f"target_{i}"] = {
+            "accuracy": acc,
+            "precision": prec,
+            "recall": rec,
+            "f1_score": f1,
+        }
+        accs.append(acc)
+        precs.append(prec)
+        recs.append(rec)
+        f1s.append(f1)
+        confs.append(confusion_matrix(yt, yp).tolist())
+        reports[f"target_{i}"] = classification_report(yt, yp, zero_division=0)
+
+    return {
+        "accuracy": float(np.mean(accs)) if accs else 0.0,
+        "precision": float(np.mean(precs)) if precs else 0.0,
+        "recall": float(np.mean(recs)) if recs else 0.0,
+        "f1_score": float(np.mean(f1s)) if f1s else 0.0,
+        "confusion_matrix": confs,
+        "classification_report": reports,
+        "per_target": per_target,
+    }
+
+
 def _evaluate_regression(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     """Compute regression metrics."""
     mse = mean_squared_error(y_true, y_pred)
@@ -115,6 +166,42 @@ def _evaluate_regression(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
         "rmse": np.sqrt(mse),
         "r2": r2_score(y_true, y_pred),
         "mape": mean_absolute_percentage_error(y_true, y_pred),
+    }
+
+
+def _evaluate_multioutput_regression(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    maes = []
+    mses = []
+    rmses = []
+    r2s = []
+    mapes = []
+    per_target = {}
+
+    n_targets = y_true.shape[1]
+    for i in range(n_targets):
+        yt = y_true[:, i]
+        yp = y_pred[:, i]
+        mse = mean_squared_error(yt, yp)
+        per_target[f"target_{i}"] = {
+            "mae": mean_absolute_error(yt, yp),
+            "mse": mse,
+            "rmse": np.sqrt(mse),
+            "r2": r2_score(yt, yp),
+            "mape": mean_absolute_percentage_error(yt, yp),
+        }
+        maes.append(per_target[f"target_{i}"]["mae"])
+        mses.append(mse)
+        rmses.append(per_target[f"target_{i}"]["rmse"])
+        r2s.append(per_target[f"target_{i}"]["r2"])
+        mapes.append(per_target[f"target_{i}"]["mape"])
+
+    return {
+        "mae": float(np.mean(maes)) if maes else 0.0,
+        "mse": float(np.mean(mses)) if mses else 0.0,
+        "rmse": float(np.mean(rmses)) if rmses else 0.0,
+        "r2": float(np.mean(r2s)) if r2s else 0.0,
+        "mape": float(np.mean(mapes)) if mapes else 0.0,
+        "per_target": per_target,
     }
 
 

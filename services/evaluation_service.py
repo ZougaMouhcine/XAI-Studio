@@ -282,25 +282,41 @@ class EvaluationService:
             except Exception:
                 y_proba = None
 
-        avg = "weighted" if len(np.unique(y_test)) > 2 else "binary"
+        y_arr = np.array(y_test)
+        is_multi = y_arr.ndim > 1 and y_arr.shape[1] > 1
 
-        metrics = {
-            "accuracy": float(accuracy_score(y_test, y_pred)),
-            "precision": float(precision_score(y_test, y_pred, average=avg, zero_division=0)),
-            "recall": float(recall_score(y_test, y_pred, average=avg, zero_division=0)),
-            "f1_score": float(f1_score(y_test, y_pred, average=avg, zero_division=0)),
-            "confusion_matrix": confusion_matrix(y_test, y_pred).tolist(),
-            "classification_report": classification_report(y_test, y_pred, zero_division=0),
-            "classification_report_dict": classification_report(y_test, y_pred, output_dict=True, zero_division=0),
-        }
+        if is_multi:
+            metrics = {
+                "accuracy": float(accuracy_score(y_test, y_pred)),
+                "precision": float(precision_score(y_test, y_pred, average="samples", zero_division=0)),
+                "recall": float(recall_score(y_test, y_pred, average="samples", zero_division=0)),
+                "f1_score": float(f1_score(y_test, y_pred, average="samples", zero_division=0)),
+                "confusion_matrix": [
+                    confusion_matrix(y_arr[:, i], np.array(y_pred)[:, i]).tolist()
+                    for i in range(y_arr.shape[1])
+                ],
+                "classification_report": classification_report(y_test, y_pred, zero_division=0),
+                "classification_report_dict": classification_report(y_test, y_pred, output_dict=True, zero_division=0),
+            }
+        else:
+            avg = "weighted" if len(np.unique(y_test)) > 2 else "binary"
+            metrics = {
+                "accuracy": float(accuracy_score(y_test, y_pred)),
+                "precision": float(precision_score(y_test, y_pred, average=avg, zero_division=0)),
+                "recall": float(recall_score(y_test, y_pred, average=avg, zero_division=0)),
+                "f1_score": float(f1_score(y_test, y_pred, average=avg, zero_division=0)),
+                "confusion_matrix": confusion_matrix(y_test, y_pred).tolist(),
+                "classification_report": classification_report(y_test, y_pred, zero_division=0),
+                "classification_report_dict": classification_report(y_test, y_pred, output_dict=True, zero_division=0),
+            }
 
-        roc_info = self._roc_info(y_test, y_proba)
-        if roc_info:
-            metrics.update(roc_info)
+            roc_info = self._roc_info(y_test, y_proba)
+            if roc_info:
+                metrics.update(roc_info)
 
-        pr_info = self._pr_info(y_test, y_proba)
-        if pr_info:
-            metrics.update(pr_info)
+            pr_info = self._pr_info(y_test, y_proba)
+            if pr_info:
+                metrics.update(pr_info)
 
         metrics.update(self._complexity_info(model))
         metrics["score_global"] = self._global_score(metrics, task_type="classification")
@@ -422,7 +438,9 @@ class EvaluationService:
     def _complexity_info(model) -> dict:
         complexity = None
         if hasattr(model, "n_estimators"):
-            complexity = int(getattr(model, "n_estimators"))
+            val = getattr(model, "n_estimators")
+            if val is not None:
+                complexity = int(val)
         elif hasattr(model, "estimators_"):
             try:
                 complexity = len(model.estimators_)
@@ -435,7 +453,9 @@ class EvaluationService:
                 complexity = None
         elif hasattr(model, "coef_"):
             try:
-                complexity = int(np.prod(model.coef_.shape))
+                size = np.prod(model.coef_.shape) if model.coef_ is not None else None
+                if size is not None:
+                    complexity = int(size)
             except Exception:
                 complexity = None
 

@@ -175,6 +175,9 @@ class EvaluationController:
             roc = metrics.get("roc_curve")
             pr = metrics.get("pr_curve")
             if cm is not None:
+                cm_arr = np.array(cm)
+                if cm_arr.ndim == 3:
+                    cm = cm_arr[0].tolist()
                 sections.append(self._section("Confusion Matrix", self.visualization_service.render_confusion_matrix(cm).figure))
             if roc:
                 sections.append(self._section("ROC Curve", self.visualization_service.render_roc_curve(roc["fpr"], roc["tpr"], label=entry.name).figure))

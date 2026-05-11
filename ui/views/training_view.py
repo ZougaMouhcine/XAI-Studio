@@ -45,6 +45,8 @@ class TrainingView(ttk.Frame):
         self._train_resource_var = tk.StringVar(value="-")
         self._train_progress_var = tk.DoubleVar(value=0.0)
         self._show_all_params_var = tk.BooleanVar(value=False)
+        self._multi_target_var = tk.BooleanVar(value=False)
+        self._multi_target_user_set = False
 
         self._automl_search_var = tk.StringVar(value="grid")
         self._automl_cv_var = tk.StringVar(value="3")
@@ -130,6 +132,16 @@ class TrainingView(ttk.Frame):
         tk.Label(info, text=_("train_dims"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT_SEC).grid(row=0, column=2, sticky="w", padx=(24, 0))
         tk.Label(info, textvariable=self._shape_var, font=F.H3, bg=C.BG_CARD, fg=C.TEXT).grid(row=1, column=2, sticky="w", padx=(24, 0))
 
+        mt_row = tk.Frame(overview.inner, bg=C.BG_CARD)
+        mt_row.pack(fill="x", pady=(8, 0))
+        tk.Label(mt_row, text="Multi-target mode", font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_SEC).pack(side="left")
+        self._multi_target_switch = ttk.Checkbutton(
+            mt_row,
+            style="Card.TCheckbutton",
+            variable=self._multi_target_var,
+            command=self._on_multi_target_toggle,
+        )
+        self._multi_target_switch.pack(side="left", padx=(8, 0))
         layout = tk.Frame(parent, bg=C.BG_MAIN)
         layout.pack(fill="both", expand=True, padx=px, pady=(0, 16))
         layout.columnconfigure(0, weight=1, uniform="train_cols")
@@ -258,13 +270,16 @@ class TrainingView(ttk.Frame):
 
     def _refresh_overview(self):
         pr = self._service.preprocessing_result
+        targets = self._service.target_columns
+        if not self._multi_target_user_set:
+            self._multi_target_var.set(len(targets) > 1)
         if pr is None:
             self._task_var.set("-")
-            self._target_var.set(", ".join(self._service.target_columns) if self._service.target_columns else "-")
+            self._target_var.set(", ".join(targets) if targets else "-")
             self._shape_var.set("-")
             return
         self._task_var.set(pr.task_type)
-        self._target_var.set(", ".join(self._service.target_columns) if self._service.target_columns else "-")
+        self._target_var.set(", ".join(targets) if targets else "-")
         self._shape_var.set(f"{pr.X_train.shape[0]} x {pr.X_train.shape[1]}")
 
     def _refresh_model_list(self):
@@ -278,13 +293,16 @@ class TrainingView(ttk.Frame):
             tk.Label(self._models_list, text=_("train_msg_load_data"), bg=C.BG_CARD, fg=C.TEXT_DIM, font=F.BODY).pack(anchor="w")
             return
 
+        multi_target = len(self._service.target_columns) > 1
+        auto_select = not (multi_target and not self._multi_target_var.get())
+
         registry = self._service.get_model_registry()
         n_cols = 2
         grid = tk.Frame(self._models_list, bg=C.BG_CARD)
         grid.pack(fill="x")
 
         for idx, name in enumerate(model_names):
-            var = tk.BooleanVar(value=True)
+            var = tk.BooleanVar(value=auto_select)
             self._model_checks[name] = var
             self._model_use_defaults[name] = tk.BooleanVar(value=True)
 
@@ -424,6 +442,9 @@ class TrainingView(ttk.Frame):
         return params_map
 
     def _on_train(self):
+        if len(self._service.target_columns) > 1 and not self._multi_target_var.get():
+            show_error(_("train_err_title"), "Multiple target columns detected. Enable multi-target mode or select a single target.")
+            return
         selected = [n for n, v in self._model_checks.items() if v.get()]
         if not selected:
             show_error(_("train_err_title"), _("train_err_sel_model"))
@@ -462,6 +483,7 @@ class TrainingView(ttk.Frame):
                 self._service.run_training(
                     selected_models=selected,
                     model_params_map=params_map,
+                    multi_target=self._multi_target_var.get(),
                     progress_callback=progress_cb,
                 )
                 self.after(0, self._on_train_done)
@@ -514,6 +536,9 @@ class TrainingView(ttk.Frame):
         if self._service.preprocessing_result is None:
             show_error(_("train_err_title"), _("train_err_prep_first"))
             return
+        if len(self._service.target_columns) > 1:
+            show_error(_("train_err_title"), "AutoML does not support multi-target yet.")
+            return
 
         selected = [self._automl_list.get(i) for i in self._automl_list.curselection()]
         cv = int(self._automl_cv_var.get() or 3)
@@ -545,6 +570,10 @@ class TrainingView(ttk.Frame):
         }
         self._automl_log.set_content(json.dumps(text, indent=2, ensure_ascii=False))
         self._automl_status_var.set(_("train_automl_done"))
+
+    def _on_multi_target_toggle(self):
+        self._multi_target_user_set = True
+        self._refresh_model_list()
 
     def _navigate_to(self, view_name: str) -> None:
         root = self.winfo_toplevel()

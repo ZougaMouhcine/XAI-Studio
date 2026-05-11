@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 
 from config.settings import CLASSIFICATION_MODELS, REGRESSION_MODELS, CLUSTERING_MODELS
+from sklearn.multioutput import MultiOutputClassifier, MultiOutputRegressor
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -80,6 +81,18 @@ def _infer_param_type(value) -> str:
     return "string"
 
 
+def _wrap_multi_output(model, task_type: str):
+    if task_type == "classification":
+        if isinstance(model, MultiOutputClassifier):
+            return model
+        return MultiOutputClassifier(model)
+    if task_type == "regression":
+        if isinstance(model, MultiOutputRegressor):
+            return model
+        return MultiOutputRegressor(model)
+    return model
+
+
 def get_model_param_schema(
     task_type: str,
     model_name: str,
@@ -144,6 +157,7 @@ def train_model(
     y_train: np.ndarray,
     task_type: str,
     custom_params: dict | None = None,
+    multi_target: bool = False,
 ) -> tuple[Any, float]:
     """
     Train a single model by name.
@@ -174,6 +188,10 @@ def train_model(
 
     model_info = registry[name]
     model = _instantiate_model(model_info, custom_params)
+    if multi_target and task_type != "clustering":
+        if y_train is not None and hasattr(y_train, "ndim"):
+            if y_train.ndim > 1 and y_train.shape[1] > 1:
+                model = _wrap_multi_output(model, task_type)
 
     logger.info("Training '%s' (%s)…", name, model_info["class"])
     start = time.perf_counter()
@@ -193,6 +211,7 @@ def train_all_models(
     task_type: str,
     selected_models: list[str] | None = None,
     model_params_map: dict[str, dict] | None = None,
+    multi_target: bool = False,
     progress_callback=None,
 ) -> dict[str, dict]:
     """
@@ -224,7 +243,14 @@ def train_all_models(
         elapsed = None
         try:
             custom_params = model_params_map.get(name)
-            model, elapsed = train_model(name, X_train, y_train, task_type, custom_params=custom_params)
+            model, elapsed = train_model(
+                name,
+                X_train,
+                y_train,
+                task_type,
+                custom_params=custom_params,
+                multi_target=multi_target,
+            )
             results[name] = {"model": model, "training_time": elapsed}
         except Exception as exc:
             logger.error("Failed to train '%s': %s", name, exc)

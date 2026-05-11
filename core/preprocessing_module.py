@@ -557,7 +557,14 @@ class PreprocessingWorkspace:
     def _step_encoding(self, method: str, columns: list[str], opts: dict[str, Any]) -> StepOutcome:
         df = self.current_df
         cols = self._resolve_columns(columns)
-        cols = [c for c in cols if df[c].dtype == object or str(df[c].dtype).startswith("category")]
+        target_cols = set(opts.get("target_columns") or [])
+        cols = [
+            c for c in cols
+            if (df[c].dtype == object or str(df[c].dtype).startswith("category")) and c not in target_cols
+        ]
+
+        if not cols:
+            return StepOutcome(True, "No categorical feature columns to encode", {})
 
         if method == "label_encoding":
             enc_map = {}
@@ -813,7 +820,10 @@ class PreprocessingWorkspace:
         return StepOutcome(True, "Balancing applied", {"before": before, "after": after})
 
     def _step_splitting(self, method: str, columns: list[str], opts: dict[str, Any]) -> StepOutcome:
-        target = opts.get("target_column")
+        targets = opts.get("target_columns")
+        target = targets[0] if targets else None
+        if not target:
+            raise ValueError("target_columns required for splitting")
         X, y, task = self._prepare_xy(target)
         random_state = int(opts.get("random_state", 42))
 
@@ -821,13 +831,29 @@ class PreprocessingWorkspace:
             test_size = float(opts.get("test_size", 0.2))
             stratify = y if (task == "classification" and bool(opts.get("stratify", True))) else None
             split = train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=stratify)
-            self.splits["train_test"] = split
+            self.splits["train_test"] = {
+                "X_train": split[0].to_numpy(),
+                "X_test": split[1].to_numpy(),
+                "y_train": split[2].to_numpy(),
+                "y_test": split[3].to_numpy(),
+                "feature_names": X.columns.tolist(),
+                "target": target,
+                "task": task,
+            }
             return StepOutcome(True, "Train/Test split created", {"test_size": test_size, "train": len(split[0]), "test": len(split[1])})
 
         if method == "validation_split":
             val_size = float(opts.get("val_size", 0.2))
             split = train_test_split(X, y, test_size=val_size, random_state=random_state)
-            self.splits["validation"] = split
+            self.splits["validation"] = {
+                "X_train": split[0].to_numpy(),
+                "X_val": split[1].to_numpy(),
+                "y_train": split[2].to_numpy(),
+                "y_val": split[3].to_numpy(),
+                "feature_names": X.columns.tolist(),
+                "target": target,
+                "task": task,
+            }
             return StepOutcome(True, "Validation split created", {"val_size": val_size, "train": len(split[0]), "val": len(split[1])})
 
         if method == "kfold":
