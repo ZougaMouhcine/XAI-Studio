@@ -14,6 +14,7 @@ from ui.display import detect_ui_scale, apply_tk_scaling, try_configure_customtk
 from ui.components.top_bar import TopBar
 from ui.components.sidebar import Sidebar
 from ui.components.status_bar import StatusBar
+from ui.components.agent_panel import AgentPanel
 from ui.views.data_view import DataView
 from ui.views.preprocessing_view import PreprocessingView
 from ui.views.training_view import TrainingView
@@ -24,6 +25,8 @@ from ui.views.upload_view import UploadView
 from ui.views.xai_view import XAIView
 from ui.views.visualization_view import VisualizationView
 from ui.views.fairness_view import FairnessView
+from services.agent_service import AgentService
+from ui.components.agent_settings import load_agent_config
 from utils.logger import set_ui_callback
 from config.settings import APP_NAME, APP_VERSION, WINDOW_WIDTH, WINDOW_HEIGHT, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT
 
@@ -59,7 +62,13 @@ class XAIStudioApp:
         self._content = None
         self._sidebar = None
         self._status_bar = None
+        self._agent_panel = None
+        self._agent_visible = False
         self._views: dict[str, ttk.Frame] = {}
+
+        # ── Initialize Agent Service ─────────────────────────────────
+        self._agent_service = AgentService()
+        self._configure_agent()
 
         # Set window icon title
         self.root.option_add("*tearOff", False)
@@ -108,9 +117,10 @@ class XAIStudioApp:
         if self._status_bar is not None:
             self._status_bar.destroy()
             self._status_bar = None
+        self._agent_panel = None
 
         # ── Top Header ──────────────────────────────────────────
-        self._top_bar = TopBar(self.root)
+        self._top_bar = TopBar(self.root, on_toggle_agent=self._toggle_agent_panel)
         self._top_bar.pack(side="top", fill="x")
         self._top_bar_divider = tk.Frame(self.root, bg=C.HEADER_BORDER, height=1)
         self._top_bar_divider.pack(side="top", fill="x")
@@ -141,6 +151,15 @@ class XAIStudioApp:
 
         self._content = tk.Frame(right, bg=C.BG_MAIN)
         self._content.pack(fill="both", expand=True)
+
+        # ── Agent Panel (right side, togglable) ──────────────────
+        self._agent_panel = AgentPanel(
+            self._main_container,
+            agent_service=self._agent_service,
+            on_close=self._toggle_agent_panel,
+        )
+        if self._agent_visible:
+            self._agent_panel.pack(side="right", fill="y")
 
         # ── Status bar ───────────────────────────────────────────
         self._status_bar = StatusBar(self.root)
@@ -188,6 +207,32 @@ class XAIStudioApp:
             mode_text = "clair" if new_mode == "light" else "sombre"
             self._status_bar.set_message("INFO", f"Theme: mode {mode_text}")
 
+    # ── Agent Panel ──────────────────────────────────────────────────
+
+    def _configure_agent(self):
+        """Load saved API keys and configure the agent service."""
+        config = load_agent_config()
+        self._agent_service.configure(
+            groq_key=config.get("groq_key", ""),
+            gemini_key=config.get("gemini_key", ""),
+            groq_model=config.get("groq_model", "llama-3.3-70b-versatile"),
+            gemini_model=config.get("gemini_model", "gemini-2.5-flash"),
+            navigate_fn=self._show_view,
+            preferred_provider=config.get("preferred_provider", ""),
+        )
+
+    def _toggle_agent_panel(self):
+        """Show or hide the AI assistant panel."""
+        self._agent_visible = not self._agent_visible
+        if self._agent_panel:
+            if self._agent_visible:
+                self._agent_panel.pack(side="right", fill="y")
+            else:
+                self._agent_panel.pack_forget()
+        # Update top bar button state
+        if self._top_bar:
+            self._top_bar.set_agent_active(self._agent_visible)
+
     def _on_log_message(self, level: str, message: str):
         self.root.after(
             0,
@@ -195,4 +240,6 @@ class XAIStudioApp:
         )
 
     def run(self):
+        # Bind Ctrl+Shift+I to toggle agent panel
+        self.root.bind_all("<Control-Shift-i>", lambda e: self._toggle_agent_panel())
         self.root.mainloop()

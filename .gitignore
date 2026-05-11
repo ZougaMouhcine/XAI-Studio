@@ -18,3 +18,6 @@ venv/
 *~
 models/saved/*.pkl
 catboost_info/
+
+# Ignore local agent configuration (contains API keys)
+config/agent.json
