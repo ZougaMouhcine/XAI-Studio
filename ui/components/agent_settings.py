@@ -14,6 +14,7 @@ import threading
 from ui.widgets import C, F, scaled_font
 from config.settings import BASE_DIR
 from utils.logger import get_logger
+from services.i18n import _
 
 logger = get_logger(__name__)
 
@@ -50,7 +51,7 @@ class AgentSettingsDialog(tk.Toplevel):
         self._agent = agent_service
         self._on_save = on_save
 
-        self.title("AI Assistant -- Settings")
+        self.title(_("settings_title"))
         self.configure(bg=C.BG_CARD)
         self.resizable(False, False)
 
@@ -77,7 +78,7 @@ class AgentSettingsDialog(tk.Toplevel):
         title_frame.pack(fill="x", padx=pad, pady=(pad, 0))
 
         tk.Label(
-            title_frame, text="AI Assistant Settings",
+            title_frame, text=_("settings_title"),
             font=scaled_font(14, "bold"), bg=bg, fg=C.TEXT,
         ).pack(side="left")
 
@@ -87,10 +88,7 @@ class AgentSettingsDialog(tk.Toplevel):
 
         tk.Label(
             info_frame,
-            text=(
-                "Enter at least one API key. Click 'Test' to validate\n"
-                "and fetch available models. Choose active provider below."
-            ),
+            text=_("settings_desc"),
             font=(F.FAM, 9), bg=C.INFO_DIM, fg=C.TEXT_SEC,
             justify="left", padx=12, pady=8,
         ).pack(fill="x")
@@ -128,12 +126,12 @@ class AgentSettingsDialog(tk.Toplevel):
         pref_row.pack(fill="x")
 
         tk.Label(
-            pref_row, text="Active Provider:", font=scaled_font(11, "bold"),
+            pref_row, text=_("active_provider"), font=scaled_font(11, "bold"),
             bg=bg, fg=C.TEXT,
         ).pack(side="left")
 
         tk.Label(
-            pref_row, text="Used when both keys are set", font=(F.FAM, 8),
+            pref_row, text=_("active_provider_desc"), font=(F.FAM, 8),
             bg=bg, fg=C.TEXT_MUTED,
         ).pack(side="right")
 
@@ -159,7 +157,7 @@ class AgentSettingsDialog(tk.Toplevel):
 
         # Cancel
         cancel_btn = tk.Label(
-            btn_frame, text="Cancel", font=scaled_font(10, "bold"),
+            btn_frame, text=_("cancel"), font=scaled_font(10, "bold"),
             bg=C.BG_CARD_ALT, fg=C.TEXT_SEC, padx=16, pady=6, cursor="hand2",
         )
         cancel_btn.pack(side="right", padx=(8, 0))
@@ -167,7 +165,7 @@ class AgentSettingsDialog(tk.Toplevel):
 
         # Save
         save_btn = tk.Label(
-            btn_frame, text="Save & Apply", font=scaled_font(10, "bold"),
+            btn_frame, text=_("save_apply"), font=scaled_font(10, "bold"),
             bg=C.ACCENT, fg="#ffffff", padx=16, pady=6, cursor="hand2",
         )
         save_btn.pack(side="right")
@@ -203,7 +201,7 @@ class AgentSettingsDialog(tk.Toplevel):
 
         # API Key label
         tk.Label(
-            section, text="API Key:", font=(F.FAM, 9, "bold"),
+            section, text=_("api_key"), font=(F.FAM, 9, "bold"),
             bg=bg, fg=C.TEXT_SEC,
         ).pack(anchor="w", pady=(8, 2))
 
@@ -221,7 +219,7 @@ class AgentSettingsDialog(tk.Toplevel):
         key_entry.pack(side="left", fill="x", expand=True, ipady=6)
 
         test_btn = tk.Label(
-            key_row, text="Test", font=(F.FAM, 9, "bold"),
+            key_row, text=_("test_btn"), font=(F.FAM, 9, "bold"),
             bg=C.BG_CARD_ALT, fg=C.ACCENT, padx=12, pady=6, cursor="hand2",
         )
         test_btn.pack(side="right", padx=(6, 0))
@@ -234,7 +232,7 @@ class AgentSettingsDialog(tk.Toplevel):
         def toggle_show(sv=show_var, entry=key_entry):
             entry.configure(show="" if sv.get() else "*")
         show_check = tk.Checkbutton(
-            section, text="Show key", variable=show_var, command=toggle_show,
+            section, text=_("show_key"), variable=show_var, command=toggle_show,
             font=(F.FAM, 8), bg=bg, fg=C.TEXT_MUTED,
             selectcolor=C.BG_INPUT, activebackground=bg,
         )
@@ -248,7 +246,7 @@ class AgentSettingsDialog(tk.Toplevel):
 
         # Model selector
         tk.Label(
-            section, text="Model:", font=(F.FAM, 9, "bold"),
+            section, text=_("model_label"), font=(F.FAM, 9, "bold"),
             bg=bg, fg=C.TEXT_SEC,
         ).pack(anchor="w", pady=(4, 2))
 

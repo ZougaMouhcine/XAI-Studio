@@ -9,6 +9,7 @@ from tkinter import ttk
 import time
 
 from ui.widgets import C, F, scaled, scaled_font
+from services.i18n import _
 
 
 class AgentPanel(tk.Frame):
@@ -44,7 +45,7 @@ class AgentPanel(tk.Frame):
         header.pack(fill="x", padx=16, pady=(12, 0))
 
         tk.Label(
-            header, text="✦ AI Assistant", font=scaled_font(13, "bold"),
+            header, text=_("agent_header"), font=scaled_font(13, "bold"),
             bg=C.BG_CARD, fg=C.TEXT,
         ).pack(side="left")
 
@@ -140,7 +141,7 @@ class AgentPanel(tk.Frame):
         self._input_text.pack(fill="x", expand=True)
 
         # Placeholder text
-        self._placeholder = "Ask anything..."
+        self._placeholder = _("agent_placeholder")
         self._show_placeholder()
         self._input_text.bind("<FocusIn>", self._on_focus_in)
         self._input_text.bind("<FocusOut>", self._on_focus_out)
@@ -166,7 +167,7 @@ class AgentPanel(tk.Frame):
 
         # Send button (right side)
         self._send_btn = tk.Label(
-            btn_row, text="Send  ↵", font=scaled_font(9, "bold"),
+            btn_row, text=_("agent_send"), font=scaled_font(9, "bold"),
             bg=C.ACCENT, fg="#ffffff", padx=14, pady=5, cursor="hand2",
         )
         self._send_btn.pack(side="right")
@@ -198,14 +199,7 @@ class AgentPanel(tk.Frame):
     # ── Chat Messages ────────────────────────────────────────────────
 
     def _show_welcome(self):
-        welcome = (
-            "Welcome! I'm your XAI Studio assistant.\n\n"
-            "- **Ask** -- I answer questions about ML & XAI\n"
-            "- **Agent** -- I can execute app actions for you\n"
-            "- **Plan** -- I create step-by-step ML plans\n\n"
-            "How can I help you?"
-        )
-        self._add_message("assistant", welcome)
+        self._add_message("assistant", _("agent_welcome"))
 
     def _add_message(self, role: str, content: str, msg_type: str = "text"):
         """Add a message bubble to the chat area."""
@@ -254,7 +248,7 @@ class AgentPanel(tk.Frame):
 
         # Edit button
         edit_lbl = tk.Label(
-            inner, text="Edit", font=(F.FAM, 7, "bold"), bg=C.ACCENT, fg="#e0e0e0",
+            inner, text=_("agent_edit"), font=(F.FAM, 7, "bold"), bg=C.ACCENT, fg="#e0e0e0",
             cursor="hand2", pady=0,
         )
         edit_lbl.pack(side="right", anchor="e", pady=(4, 0))

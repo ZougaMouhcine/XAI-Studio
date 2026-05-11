@@ -13,6 +13,7 @@ from ui.components.dialogs import (
     show_info,
 )
 from services.pipeline_service import PipelineService
+from services.i18n import _
 
 
 class PreprocessingView(ttk.Frame):
@@ -31,7 +32,7 @@ class PreprocessingView(ttk.Frame):
 
         self._category_var = tk.StringVar(value="data_cleaning")
         self._method_var = tk.StringVar()
-        self._status_var = tk.StringVar(value="Prêt")
+        self._status_var = tk.StringVar(value=_("prep_status_ready"))
 
         self._build()
 
@@ -56,8 +57,8 @@ class PreprocessingView(ttk.Frame):
         header.pack(fill="x", padx=px, pady=(24, 0))
         SectionHeader(
             header,
-            title="Préprocessing Pro",
-            subtitle="Module interactif, modulaire et extensible pour ML professionnel",
+            title=_("prep_title"),
+            subtitle=_("prep_subtitle"),
             icon="",
         ).pack(side="left")
 
@@ -87,7 +88,7 @@ class PreprocessingView(ttk.Frame):
         nav_row.pack(anchor="e", padx=px, pady=(0, 16))
         ModernButton(
             nav_row,
-            text="Valider et passer à l'entraînement",
+            text=_("prep_btn_validate"),
             style="primary",
             command=self._prepare_training,
             bg=C.BG_MAIN,
@@ -100,7 +101,7 @@ class PreprocessingView(ttk.Frame):
             parent.columnconfigure(i, weight=0)
         parent.columnconfigure(7, weight=1)
 
-        tk.Label(parent, text="Cible", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=0, sticky="w")
+        tk.Label(parent, text=_("prep_target"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=0, column=0, sticky="w")
         self._target_combo = ttk.Combobox(parent, textvariable=self._target_var, width=self._field_width, state="readonly")
         self._target_combo.grid(row=0, column=1, padx=(8, 16), sticky="w")
 
@@ -113,22 +114,22 @@ class PreprocessingView(ttk.Frame):
         ttk.Entry(random_state_row, textvariable=self._random_state_var, width=self._field_width).pack(side="left", padx=(8, 0))
 
 
-        tk.Label(parent, text="Catégorie", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=1, column=0, sticky="w", pady=(14, 0))
+        tk.Label(parent, text=_("prep_cat"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=1, column=0, sticky="w", pady=(14, 0))
         cat_combo = ttk.Combobox(parent, textvariable=self._category_var, width=self._field_width, state="readonly", values=list(self._catalog.keys()))
         cat_combo.grid(row=1, column=1, padx=(8, 16), pady=(14, 0), sticky="w")
         cat_combo.bind("<<ComboboxSelected>>", lambda _: self._on_category_change())
 
-        tk.Label(parent, text="Méthode", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=1, column=2, sticky="w", pady=(14, 0))
+        tk.Label(parent, text=_("prep_method"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=1, column=2, sticky="w", pady=(14, 0))
         self._method_combo = ttk.Combobox(parent, textvariable=self._method_var, width=self._field_width, state="readonly")
         self._method_combo.grid(row=1, column=3, columnspan=2, padx=(8, 16), pady=(14, 0), sticky="w")
 
-        tk.Label(parent, text="Colonnes", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=2, column=0, sticky="nw", pady=(14, 0))
+        tk.Label(parent, text=_("prep_cols"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).grid(row=2, column=0, sticky="nw", pady=(14, 0))
         self._columns_list = tk.Listbox(parent, selectmode="extended", height=5, exportselection=False, width=self._field_width)
         # Keep the columns listbox the same character width as other fields (no extra columnspan)
         self._columns_list.grid(row=2, column=1, columnspan=1, sticky="w", pady=(14, 0), padx=(8, 16))
         tk.Label(
             parent,
-            text="Sélection multiple autorisée: Ctrl / Shift",
+            text=_("prep_multi"),
             font=F.TINY,
             bg=C.BG_CARD,
             fg=C.TEXT_MUTED,
@@ -137,60 +138,60 @@ class PreprocessingView(ttk.Frame):
         actions = tk.Frame(parent, bg=C.BG_CARD)
         actions.grid(row=3, column=0, columnspan=8, sticky="ew", pady=(14, 0))
 
-        ModernButton(actions, text="Exécuter étape", style="primary", command=self._run_single_step, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(actions, text="Ajouter au pipeline", style="secondary", command=self._add_step, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(actions, text="Exécuter pipeline", style="secondary", command=self._run_pipeline, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(actions, text=_("prep_btn_exec_step"), style="primary", command=self._run_single_step, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(actions, text=_("prep_btn_add_step"), style="secondary", command=self._add_step, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(actions, text=_("prep_btn_exec_pipe"), style="secondary", command=self._run_pipeline, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
         ModernButton(actions, text="Undo", style="ghost", command=self._undo, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
         ModernButton(actions, text="Redo", style="ghost", command=self._redo, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(actions, text="Auto recommandations", style="ghost", command=self._recommend, bg=C.BG_CARD).pack(side="right")
+        ModernButton(actions, text=_("prep_btn_recom"), style="ghost", command=self._recommend, bg=C.BG_CARD).pack(side="right")
 
     def _build_pipeline_panel(self, parent):
         card = Card(parent, accent_color=C.ACCENT, pad=16)
         card.pack(fill="both", expand=True)
 
-        tk.Label(card.inner, text="Pipeline dynamique", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(card.inner, text=_("prep_pipe_dyn"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
 
-        cols = ("#", "Catégorie", "Méthode", "Colonnes")
-        widths = {"#": 40, "Catégorie": 160, "Méthode": 180, "Colonnes": 260}
+        cols = ("#", _("prep_cat"), _("prep_method"), _("prep_cols"))
+        widths = {"#": 40, _("prep_cat"): 160, _("prep_method"): 180, _("prep_cols"): 260}
         self._pipeline_table = StyledTreeview(card.inner, columns=cols, col_widths=widths, height=8, bg=C.BG_CARD)
         self._pipeline_table.pack(fill="both", expand=True, pady=(10, 10))
 
         row = tk.Frame(card.inner, bg=C.BG_CARD)
         row.pack(fill="x")
-        ModernButton(row, text="Supprimer", style="danger", command=self._remove_selected_step, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(row, text="Monter", style="secondary", command=lambda: self._move_selected_step("up"), bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(row, text="Descendre", style="secondary", command=lambda: self._move_selected_step("down"), bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(row, text="Sauvegarder", style="ghost", command=self._save_pipeline, bg=C.BG_CARD).pack(side="right", padx=(8, 0))
-        ModernButton(row, text="Charger", style="ghost", command=self._load_pipeline, bg=C.BG_CARD).pack(side="right", padx=(8, 0))
-        ModernButton(row, text="Exporter code", style="ghost", command=self._export_code, bg=C.BG_CARD).pack(side="right")
+        ModernButton(row, text=_("prep_btn_del"), style="danger", command=self._remove_selected_step, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(row, text=_("prep_btn_up"), style="secondary", command=lambda: self._move_selected_step("up"), bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(row, text=_("prep_btn_down"), style="secondary", command=lambda: self._move_selected_step("down"), bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(row, text=_("prep_btn_save"), style="ghost", command=self._save_pipeline, bg=C.BG_CARD).pack(side="right", padx=(8, 0))
+        ModernButton(row, text=_("prep_btn_load"), style="ghost", command=self._load_pipeline, bg=C.BG_CARD).pack(side="right", padx=(8, 0))
+        ModernButton(row, text=_("prep_btn_export"), style="ghost", command=self._export_code, bg=C.BG_CARD).pack(side="right")
 
-        self._recommend_log = LogPanel(card.inner, height=5, label="Suggestions intelligentes", bg_outer=C.BG_CARD, scrollbar=True)
+        self._recommend_log = LogPanel(card.inner, height=5, label=_("prep_recom_log"), bg_outer=C.BG_CARD, scrollbar=True)
         self._recommend_log.pack(fill="both", expand=True, pady=(12, 0))
 
     def _build_preview_panel(self, parent):
         card = Card(parent, accent_color=C.ACCENT, pad=16)
         card.pack(fill="both", expand=True)
 
-        tk.Label(card.inner, text="Prévisualisation temps réel", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(card.inner, text=_("prep_preview"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
 
         self._preview_table = StyledTreeview(card.inner, columns=["A"], col_widths={"A": 120}, height=8, bg=C.BG_CARD)
         self._preview_table.pack(fill="both", expand=True, pady=(10, 10))
 
-        self._viz_label = tk.Label(card.inner, text="Visualisation: aucune", bg=C.BG_CARD, fg=C.TEXT_SEC, anchor="w")
+        self._viz_label = tk.Label(card.inner, text=_("prep_viz_none"), bg=C.BG_CARD, fg=C.TEXT_SEC, anchor="w")
         self._viz_label.pack(fill="x")
         self._viz_image_holder = tk.Label(card.inner, bg=C.BG_CARD)
         self._viz_image_holder.pack(fill="x", pady=(8, 0))
 
-        self._log_panel = LogPanel(card.inner, height=7, label="Logs de transformations", bg_outer=C.BG_CARD)
+        self._log_panel = LogPanel(card.inner, height=7, label=_("prep_log_title"), bg_outer=C.BG_CARD)
         self._log_panel.pack(fill="both", expand=True, pady=(12, 0))
 
     def on_enter(self):
         columns = self._service.get_columns()
-        self._target_combo["values"] = columns + ["Clustering (sans cible)"]
+        self._target_combo["values"] = columns + [_("prep_clustering")]
         if self._service.target_column and self._service.target_column in columns:
             self._target_var.set(self._service.target_column)
         elif self._service.target_column is None:
-            self._target_var.set("Clustering (sans cible)")
+            self._target_var.set(_("prep_clustering"))
         elif columns:
             self._target_var.set(columns[-1])
 
@@ -218,15 +219,15 @@ class PreprocessingView(ttk.Frame):
         cols = self._selected_columns()
         multi_required = {"scatter", "pairplot", "correlation_heatmap", "boxplot"}
         if method in multi_required and len(cols) < 2:
-            raise ValueError("Cette visualisation nécessite au moins deux colonnes sélectionnées.")
+            raise ValueError(_("prep_err_multi_viz"))
         if not cols:
-            raise ValueError("Sélectionnez au moins une colonne pour la visualisation.")
+            raise ValueError(_("prep_err_no_col_viz"))
 
     def _parse_options(self) -> dict:
         options = {}
 
         target = self._target_var.get().strip()
-        if target and target != "Clustering (sans cible)":
+        if target and target != _("prep_clustering"):
             options.setdefault("target_column", target)
 
         try:
@@ -250,9 +251,9 @@ class PreprocessingView(ttk.Frame):
                 options=self._parse_options(),
             )
             self._refresh_pipeline()
-            self._set_status("Étape ajoutée au pipeline")
+            self._set_status(_("prep_added_step"))
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("prep_err_title"), str(exc))
 
     def _run_single_step(self):
         try:
@@ -264,7 +265,7 @@ class PreprocessingView(ttk.Frame):
                 options=self._parse_options(),
             )
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("prep_err_title"), str(exc))
             return
 
         if out["ok"]:
@@ -272,53 +273,53 @@ class PreprocessingView(ttk.Frame):
             self._refresh_preview()
             self._refresh_logs()
             self._display_visual_if_any(out.get("details", {}))
-            show_info("Succès", out["message"])
+            show_info(_("prep_success_title"), out["message"])
         else:
-            show_error("Erreur", out["message"])
+            show_error(_("prep_err_title"), out["message"])
 
     def _run_pipeline(self):
         try:
             outcomes = self._service.run_preprocessing_pipeline_advanced()
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("prep_err_title"), str(exc))
             return
 
         ok = sum(1 for o in outcomes if o["ok"])
         total = len(outcomes)
-        self._set_status(f"Pipeline exécuté: {ok}/{total} étapes réussies")
+        self._set_status(_("prep_pipe_exec").format(ok, total))
         self._refresh_preview()
         self._refresh_logs()
         self._refresh_pipeline()
-        show_info("Pipeline", f"Exécution terminée: {ok}/{total} étapes réussies")
+        show_info("Pipeline", _("prep_pipe_exec_done").format(ok, total))
 
     def _undo(self):
         if self._service.preprocessing_undo():
-            self._set_status("Undo effectué")
+            self._set_status(_("prep_undo_done"))
             self._refresh_preview()
             self._refresh_logs()
         else:
-            show_info("Undo", "Aucune opération à annuler.")
+            show_info("Undo", _("prep_undo_empty"))
 
     def _redo(self):
         if self._service.preprocessing_redo():
-            self._set_status("Redo effectué")
+            self._set_status(_("prep_redo_done"))
             self._refresh_preview()
             self._refresh_logs()
         else:
-            show_info("Redo", "Aucune opération à rétablir.")
+            show_info("Redo", _("prep_redo_empty"))
 
     def _recommend(self):
         recs = self._service.get_preprocessing_recommendations()
         issues = self._service.get_preprocessing_issues()
-        text = "Issues détectés:\n" + json.dumps(issues, ensure_ascii=False, indent=2) + "\n\n"
-        text += "Recommandations:\n- " + "\n- ".join(recs) if recs else "Aucune recommandation."
+        text = _("prep_recom_issues") + json.dumps(issues, ensure_ascii=False, indent=2) + "\n\n"
+        text += _("prep_recom_list") + "\n- ".join(recs) if recs else _("prep_recom_none")
         self._recommend_log.set_content(text)
-        self._set_status("Recommandations générées")
+        self._set_status(_("prep_recom_done"))
 
     def _remove_selected_step(self):
         idx = self._selected_pipeline_index()
         if idx is None:
-            show_error("Erreur", "Sélectionnez une étape du pipeline.")
+            show_error(_("prep_err_title"), _("prep_err_sel_step"))
             return
         self._service.remove_preprocessing_step(idx)
         self._refresh_pipeline()
@@ -326,7 +327,7 @@ class PreprocessingView(ttk.Frame):
     def _move_selected_step(self, direction: str):
         idx = self._selected_pipeline_index()
         if idx is None:
-            show_error("Erreur", "Sélectionnez une étape du pipeline.")
+            show_error(_("prep_err_title"), _("prep_err_sel_step"))
             return
         self._service.move_preprocessing_step(idx, direction)
         self._refresh_pipeline()
@@ -336,7 +337,7 @@ class PreprocessingView(ttk.Frame):
         if not path:
             return
         self._service.save_preprocessing_pipeline(path)
-        self._set_status("Pipeline sauvegardé")
+        self._set_status(_("prep_pipe_saved"))
 
     def _load_pipeline(self):
         path = ask_open_pipeline_file()
@@ -344,21 +345,21 @@ class PreprocessingView(ttk.Frame):
             return
         self._service.load_preprocessing_pipeline(path)
         self._refresh_pipeline()
-        self._set_status("Pipeline chargé")
+        self._set_status(_("prep_pipe_loaded"))
 
     def _export_code(self):
         path = ask_export_python_file()
         if not path:
             return
         self._service.export_preprocessing_pipeline_code(path)
-        self._set_status("Code preprocessing exporté")
+        self._set_status(_("prep_code_exported"))
 
     def _prepare_training(self):
         target = self._target_var.get().strip()
         if not target:
-            show_error("Erreur", "Sélectionnez une colonne cible.")
+            show_error(_("prep_err_title"), _("prep_err_target"))
             return
-        if target == "Clustering (sans cible)":
+        if target == _("prep_clustering"):
             self._service.set_target_column(None)
         else:
             self._service.set_target_column(target)
@@ -366,7 +367,7 @@ class PreprocessingView(ttk.Frame):
             test_size = float(self._test_size_var.get())
             random_state = int(self._random_state_var.get())
         except ValueError:
-            show_error("Erreur", "Test size / random state invalides.")
+            show_error(_("prep_err_title"), _("prep_err_params"))
             return
 
         try:
@@ -377,11 +378,11 @@ class PreprocessingView(ttk.Frame):
                 "numeric_impute_strategy": "median",
                 "categorical_impute_strategy": "most_frequent",
             })
-            show_info("Succès", "Préprocessing final prêt pour entraînement.")
-            self._set_status("Données prêtes pour entraînement")
+            show_info(_("prep_success_title"), _("prep_success_final"))
+            self._set_status(_("prep_status_ready_train"))
             self._navigate_to("training")
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("prep_err_title"), str(exc))
 
     def _selected_pipeline_index(self) -> int | None:
         sel = self._pipeline_table.tree.selection()
@@ -419,21 +420,21 @@ class PreprocessingView(ttk.Frame):
 
     def _refresh_logs(self):
         logs = self._service.get_preprocessing_logs()
-        self._log_panel.set_content("\n".join(logs[-200:]) if logs else "Aucun log.")
+        self._log_panel.set_content("\n".join(logs[-200:]) if logs else _("prep_no_log"))
 
     def _display_visual_if_any(self, details: dict):
         image_path = details.get("image_path")
         if not image_path:
-            self._viz_label.configure(text="Visualisation: aucune")
+            self._viz_label.configure(text=_("prep_viz_none"))
             self._viz_image_holder.configure(image="", text="")
             self._viz_img = None
             return
         try:
             self._viz_img = tk.PhotoImage(file=image_path)
             self._viz_image_holder.configure(image=self._viz_img)
-            self._viz_label.configure(text=f"Visualisation: {image_path}")
+            self._viz_label.configure(text=_("prep_viz_path").format(image_path))
         except Exception:
-            self._viz_label.configure(text=f"Visualisation générée: {image_path}")
+            self._viz_label.configure(text=_("prep_viz_gen").format(image_path))
 
     def _set_status(self, text: str):
         self._status_var.set(text)

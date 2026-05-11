@@ -12,6 +12,7 @@ from ui.widgets import C, F, Card, ModernButton, SectionHeader
 from ui.components.plot_canvas import PlotCanvas
 from ui.components.dialogs import show_error
 from services.pipeline_service import PipelineService
+from services.i18n import _
 
 from utils.logger import get_logger
 
@@ -47,8 +48,8 @@ class VisualizationView(ttk.Frame):
         header = tk.Frame(ct, bg=C.BG_MAIN)
         header.pack(fill="x", padx=px, pady=(24, 0))
         SectionHeader(
-            header, icon="📈", title="Visualisations",
-            subtitle="Partial Dependence Plots (PDP) — Effet marginal des features",
+            header, icon="📈", title=_("viz_title"),
+            subtitle=_("viz_subtitle"),
         ).pack(side="left")
 
         # ── Controls card ───────────────────────────────────
@@ -59,14 +60,14 @@ class VisualizationView(ttk.Frame):
         row1 = tk.Frame(ctrl_card.inner, bg=C.BG_CARD)
         row1.pack(fill="x", pady=(0, 10))
 
-        tk.Label(row1, text="Type de PDP :", font=F.BODY,
+        tk.Label(row1, text=_("viz_lbl_type"), font=F.BODY,
                  bg=C.BG_CARD, fg=C.TEXT).pack(side="left", padx=(0, 8))
 
         self._pdp_type = ttk.Combobox(
-            row1, values=["1D (une feature)", "2D (deux features)"],
+            row1, values=[_("viz_val_1d"), _("viz_val_2d")],
             state="readonly", width=20,
         )
-        self._pdp_type.set("1D (une feature)")
+        self._pdp_type.set(_("viz_val_1d"))
         self._pdp_type.pack(side="left", padx=(0, 16))
         self._pdp_type.bind("<<ComboboxSelected>>", self._on_type_change)
 
@@ -74,13 +75,13 @@ class VisualizationView(ttk.Frame):
         row2 = tk.Frame(ctrl_card.inner, bg=C.BG_CARD)
         row2.pack(fill="x", pady=(0, 10))
 
-        tk.Label(row2, text="Feature 1 :", font=F.BODY,
+        tk.Label(row2, text=_("viz_lbl_feat1"), font=F.BODY,
                  bg=C.BG_CARD, fg=C.TEXT).pack(side="left", padx=(0, 8))
 
         self._feat1_combo = ttk.Combobox(row2, state="readonly", width=25)
         self._feat1_combo.pack(side="left", padx=(0, 16))
 
-        self._feat2_label = tk.Label(row2, text="Feature 2 :", font=F.BODY,
+        self._feat2_label = tk.Label(row2, text=_("viz_lbl_feat2"), font=F.BODY,
                                       bg=C.BG_CARD, fg=C.TEXT)
         self._feat2_combo = ttk.Combobox(row2, state="readonly", width=25)
 
@@ -89,12 +90,12 @@ class VisualizationView(ttk.Frame):
         row3.pack(fill="x")
 
         ModernButton(
-            row3, text="Générer PDP", icon="▶",
+            row3, text=_("viz_btn_pdp"), icon="▶",
             style="primary", command=self._run_pdp, bg=C.BG_CARD,
         ).pack(side="left")
 
         ModernButton(
-            row3, text="Exporter PNG", icon="💾",
+            row3, text=_("viz_btn_export"), icon="💾",
             style="secondary", command=lambda: self._plot_canvas.export_png(),
             bg=C.BG_CARD,
         ).pack(side="right")
@@ -136,19 +137,19 @@ class VisualizationView(ttk.Frame):
         try:
             model, meta = self._service.get_active_model()
             if model is None:
-                raise RuntimeError("Aucun modèle disponible.")
+                raise RuntimeError(_("viz_err_no_model"))
         except Exception as e:
-            show_error("Erreur", str(e))
+            show_error(_("viz_err_title"), str(e))
             return
 
         pr = self._service.preprocessing_result
         if pr is None:
-            show_error("Erreur", "Données non préprocessées.")
+            show_error(_("viz_err_title"), _("viz_err_no_data"))
             return
 
         feat1_name = self._feat1_combo.get()
         if not feat1_name or feat1_name not in self._feature_names:
-            show_error("Erreur", "Sélectionnez une feature valide.")
+            show_error(_("viz_err_title"), _("viz_err_inv_feat1"))
             return
 
         feat1_idx = self._feature_names.index(feat1_name)
@@ -158,7 +159,7 @@ class VisualizationView(ttk.Frame):
         if is_2d:
             feat2_name = self._feat2_combo.get()
             if not feat2_name or feat2_name not in self._feature_names:
-                show_error("Erreur", "Sélectionnez une deuxième feature valide.")
+                show_error(_("viz_err_title"), _("viz_err_inv_feat2"))
                 return
             feat2_idx = self._feature_names.index(feat2_name)
 
@@ -182,7 +183,7 @@ class VisualizationView(ttk.Frame):
             except Exception as exc:
                 logger.error("PDP error: %s", exc)
                 self._plot_canvas.after(
-                    0, lambda: show_error("Erreur PDP", str(exc))
+                    0, lambda: show_error(_("viz_err_pdp_title"), str(exc))
                 )
 
         threading.Thread(target=_compute, daemon=True).start()

@@ -6,15 +6,17 @@ Docker Desktop-inspired top application bar with AI copilot toggle.
 
 import tkinter as tk
 from ui.widgets import C, F
+from services.i18n import _
 
 
 class TopBar(tk.Frame):
     """Top app header with brand and agent toggle."""
 
-    def __init__(self, parent, on_toggle_agent=None):
+    def __init__(self, parent, on_toggle_agent=None, on_change_lang=None):
         super().__init__(parent, bg=C.HEADER_BG, height=64)
         self.pack_propagate(False)
         self._on_toggle_agent = on_toggle_agent
+        self._on_change_lang = on_change_lang
         self._agent_btn = None
         self._agent_active = False
         self._build()
@@ -33,7 +35,7 @@ class TopBar(tk.Frame):
 
         tk.Label(
             brand,
-            text="XAI.STUDIO",
+            text=_("app_title"),
             bg=C.HEADER_BG,
             fg=C.HEADER_TEXT,
             font=(F.FAM, 15, "bold"),
@@ -48,7 +50,7 @@ class TopBar(tk.Frame):
 
         self._agent_btn = tk.Label(
             right,
-            text="✦ Copilot",
+            text=f"✦ {_('agent_copilot')}",
             font=(F.FAM, 10, "bold"),
             bg=C.HEADER_SURFACE,
             fg=C.HEADER_TEXT,
@@ -70,6 +72,24 @@ class TopBar(tk.Frame):
             fg=C.HEADER_TEXT_MUTED,
         )
         shortcut.pack(side="right", pady=16)
+
+        # ── Language Switcher ─────────────────────────────────────────
+        lang_btn = tk.Label(
+            right,
+            text=_("lang_switch"),
+            font=(F.FAM, 10, "bold"),
+            bg=C.HEADER_BG,
+            fg=C.HEADER_TEXT,
+            cursor="hand2",
+        )
+        lang_btn.pack(side="right", padx=(0, 16), pady=16)
+        lang_btn.bind("<Button-1>", lambda e: self._change_lang())
+        lang_btn.bind("<Enter>", lambda e: lang_btn.configure(fg=C.HEADER_TEXT_MUTED))
+        lang_btn.bind("<Leave>", lambda e: lang_btn.configure(fg=C.HEADER_TEXT))
+
+    def _change_lang(self):
+        if self._on_change_lang:
+            self._on_change_lang()
 
     def _toggle_agent(self):
         if self._on_toggle_agent:

@@ -14,6 +14,7 @@ from ui.widgets import C, F, Card, ModernButton, SectionHeader, LogPanel, Toolti
 from ui.components.dialogs import ask_export_python_file, show_error, show_info
 from ui.components.plot_canvas import PlotCanvas, create_styled_figure
 from services.pipeline_service import PipelineService
+from services.i18n import _
 
 
 ACTIVATIONS = {
@@ -39,34 +40,34 @@ LOSSES_REGRESSION = ["mse", "mae", "huber"]
 
 LAYER_SCHEMAS = {
     "Dense": {
-        "units": {"type": "int", "default": 64, "min": 1, "max": 2048, "desc": "Nombre de neurones"},
-        "activation": {"type": "choice", "choices": list(ACTIVATIONS.keys()), "default": "ReLU", "desc": "Fonction d'activation"},
+        "units": {"type": "int", "default": 64, "min": 1, "max": 2048, "desc": "nn_layer_units_desc"},
+        "activation": {"type": "choice", "choices": list(ACTIVATIONS.keys()), "default": "ReLU", "desc": "nn_layer_act_desc"},
     },
     "Dropout": {
-        "rate": {"type": "float", "default": 0.5, "min": 0.0, "max": 0.9, "desc": "Taux de dropout"},
+        "rate": {"type": "float", "default": 0.5, "min": 0.0, "max": 0.9, "desc": "nn_layer_drop_desc"},
     },
     "BatchNormalization": {},
     "Conv2D": {
-        "filters": {"type": "int", "default": 32, "min": 1, "max": 256, "desc": "Nombre de filtres"},
-        "kernel_size": {"type": "string", "default": "3,3", "desc": "Taille du noyau"},
-        "activation": {"type": "choice", "choices": list(ACTIVATIONS.keys()), "default": "ReLU", "desc": "Activation"},
-        "padding": {"type": "choice", "choices": ["valid", "same"], "default": "same", "desc": "Padding"},
+        "filters": {"type": "int", "default": 32, "min": 1, "max": 256, "desc": "nn_layer_filters_desc"},
+        "kernel_size": {"type": "string", "default": "3,3", "desc": "nn_layer_kernel_desc"},
+        "activation": {"type": "choice", "choices": list(ACTIVATIONS.keys()), "default": "ReLU", "desc": "nn_layer_act"},
+        "padding": {"type": "choice", "choices": ["valid", "same"], "default": "same", "desc": "nn_layer_pad_desc"},
     },
     "MaxPooling2D": {
-        "pool_size": {"type": "string", "default": "2,2", "desc": "Taille du pooling"},
+        "pool_size": {"type": "string", "default": "2,2", "desc": "nn_layer_pool_desc"},
     },
     "Flatten": {},
     "LSTM": {
-        "units": {"type": "int", "default": 64, "min": 1, "max": 512, "desc": "Unites LSTM"},
-        "return_sequences": {"type": "bool", "default": False, "desc": "Retourne la sequence"},
+        "units": {"type": "int", "default": 64, "min": 1, "max": 512, "desc": "nn_layer_lstm_desc"},
+        "return_sequences": {"type": "bool", "default": False, "desc": "nn_layer_lstm_ret"},
     },
     "GRU": {
-        "units": {"type": "int", "default": 64, "min": 1, "max": 512, "desc": "Unites GRU"},
-        "return_sequences": {"type": "bool", "default": False, "desc": "Retourne la sequence"},
+        "units": {"type": "int", "default": 64, "min": 1, "max": 512, "desc": "nn_layer_gru_desc"},
+        "return_sequences": {"type": "bool", "default": False, "desc": "nn_layer_gru_ret"},
     },
     "Embedding": {
-        "input_dim": {"type": "int", "default": 1000, "min": 2, "max": 50000, "desc": "Taille du vocabulaire"},
-        "output_dim": {"type": "int", "default": 64, "min": 2, "max": 512, "desc": "Dimension d'embedding"},
+        "input_dim": {"type": "int", "default": 1000, "min": 2, "max": 50000, "desc": "nn_layer_emb_in"},
+        "output_dim": {"type": "int", "default": 64, "min": 2, "max": 512, "desc": "nn_layer_emb_out"},
     },
 }
 
@@ -94,7 +95,7 @@ class NNBuilderView(ttk.Frame):
         self._auto_output_var = tk.BooleanVar(value=True)
         self._input_shape_var = tk.StringVar(value="auto")
 
-        self._train_status_var = tk.StringVar(value="Pret")
+        self._train_status_var = tk.StringVar(value=_("train_status_ready"))
         self._train_progress_var = tk.DoubleVar(value=0.0)
         self._build()
 
@@ -104,7 +105,7 @@ class NNBuilderView(ttk.Frame):
         if self._show_header:
             header = tk.Frame(self, bg=C.BG_MAIN)
             header.pack(fill="x", padx=px, pady=(24, 0))
-            SectionHeader(header, title="Neural Network Builder", subtitle="Concevez et entrainez un reseau Keras").pack(side="left")
+            SectionHeader(header, title=_("nn_builder_title"), subtitle=_("nn_builder_subtitle")).pack(side="left")
 
         layout = tk.Frame(self, bg=C.BG_MAIN)
         layout.pack(fill="both", expand=True, padx=px, pady=(16, 16))
@@ -118,19 +119,19 @@ class NNBuilderView(ttk.Frame):
 
         self._layer_card = Card(left, accent_color=C.ACCENT, pad=12)
         self._layer_card.pack(fill="both", expand=True)
-        tk.Label(self._layer_card.inner, text="Architecture", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(self._layer_card.inner, text=_("nn_arch"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
 
         add_row = tk.Frame(self._layer_card.inner, bg=C.BG_CARD)
         add_row.pack(fill="x", pady=(8, 8))
         self._layer_type_var = tk.StringVar(value=list(LAYER_SCHEMAS.keys())[0])
         ttk.Combobox(add_row, textvariable=self._layer_type_var, values=list(LAYER_SCHEMAS.keys()), state="readonly", width=16).pack(side="left")
-        ModernButton(add_row, text="Ajouter", style="primary", command=self._add_layer, bg=C.BG_CARD).pack(side="left", padx=(8, 0))
+        ModernButton(add_row, text=_("nn_btn_add"), style="primary", command=self._add_layer, bg=C.BG_CARD).pack(side="left", padx=(8, 0))
 
         control_row = tk.Frame(self._layer_card.inner, bg=C.BG_CARD)
         control_row.pack(fill="x", pady=(0, 8))
-        ModernButton(control_row, text="Monter", style="ghost", command=lambda: self._move_layer(-1), bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(control_row, text="Descendre", style="ghost", command=lambda: self._move_layer(1), bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(control_row, text="Supprimer", style="danger", command=self._remove_layer, bg=C.BG_CARD).pack(side="left")
+        ModernButton(control_row, text=_("nn_btn_up"), style="ghost", command=lambda: self._move_layer(-1), bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(control_row, text=_("nn_btn_down"), style="ghost", command=lambda: self._move_layer(1), bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(control_row, text=_("nn_btn_del"), style="danger", command=self._remove_layer, bg=C.BG_CARD).pack(side="left")
 
         list_frame = tk.Frame(self._layer_card.inner, bg=C.BG_CARD)
         list_frame.pack(fill="both", expand=True)
@@ -143,18 +144,18 @@ class NNBuilderView(ttk.Frame):
 
         self._preview_card = Card(right, accent_color=C.INFO, pad=12)
         self._preview_card.pack(fill="both", expand=True)
-        tk.Label(self._preview_card.inner, text="Apercu visuel", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(self._preview_card.inner, text=_("nn_preview"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
 
         self._canvas = tk.Canvas(self._preview_card.inner, height=240, bg=C.BG_CARD, highlightthickness=0)
         self._canvas.pack(fill="both", expand=True, pady=(8, 8))
 
-        tk.Label(self._preview_card.inner, text="Inspecteur de couche", font=F.H4, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(self._preview_card.inner, text=_("nn_inspector"), font=F.H4, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
         self._inspector = tk.Frame(self._preview_card.inner, bg=C.BG_CARD)
         self._inspector.pack(fill="x", pady=(6, 0))
 
         self._train_card = Card(self, accent_color=C.SUCCESS, pad=12)
         self._train_card.pack(fill="x", padx=px, pady=(0, 16))
-        tk.Label(self._train_card.inner, text="Configuration entrainement", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(self._train_card.inner, text=_("nn_train_config"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
 
         cfg = tk.Frame(self._train_card.inner, bg=C.BG_CARD)
         cfg.pack(fill="x", pady=(8, 8))
@@ -176,19 +177,19 @@ class NNBuilderView(ttk.Frame):
         ttk.Combobox(cfg, textvariable=self._device_var, values=["auto", "CPU", "GPU"], state="readonly", width=10).grid(row=1, column=8, sticky="w", padx=(12, 0))
 
         ttk.Checkbutton(cfg, text="Shuffle", variable=self._shuffle_var, style="Card.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Checkbutton(cfg, text="Sortie auto", variable=self._auto_output_var, style="Card.TCheckbutton").grid(row=2, column=1, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(cfg, text=_("nn_auto_output"), variable=self._auto_output_var, style="Card.TCheckbutton").grid(row=2, column=1, sticky="w", pady=(6, 0))
 
         tk.Label(cfg, text="Input shape", font=F.TINY, bg=C.BG_CARD, fg=C.TEXT_SEC).grid(row=2, column=2, sticky="w", padx=(12, 0))
         ttk.Entry(cfg, textvariable=self._input_shape_var, width=16).grid(row=2, column=3, sticky="w", padx=(8, 0))
 
         btn_row = tk.Frame(self._train_card.inner, bg=C.BG_CARD)
         btn_row.pack(fill="x", pady=(8, 0))
-        ModernButton(btn_row, text="Exporter Keras", style="secondary", command=self._export_code, bg=C.BG_CARD).pack(side="right")
-        ModernButton(btn_row, text="Entrainer", style="primary", command=self._train_model, bg=C.BG_CARD).pack(side="right", padx=(0, 8))
+        ModernButton(btn_row, text=_("nn_btn_export"), style="secondary", command=self._export_code, bg=C.BG_CARD).pack(side="right")
+        ModernButton(btn_row, text=_("nn_btn_train"), style="primary", command=self._train_model, bg=C.BG_CARD).pack(side="right", padx=(0, 8))
 
         monitor = Card(self, accent_color=C.ACCENT, pad=12)
         monitor.pack(fill="both", expand=True, padx=px, pady=(0, 16))
-        tk.Label(monitor.inner, text="Suivi entrainement", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(monitor.inner, text=_("nn_monitor_title"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
 
         row = tk.Frame(monitor.inner, bg=C.BG_CARD)
         row.pack(fill="x", pady=(8, 8))
@@ -196,7 +197,7 @@ class NNBuilderView(ttk.Frame):
         self._nn_progress.pack(side="left", fill="x", expand=True, padx=(0, 12))
         tk.Label(row, textvariable=self._train_status_var, font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_SEC).pack(side="left")
 
-        self._nn_log = LogPanel(monitor.inner, height=6, label="Logs", bg_outer=C.BG_CARD, scrollbar=True)
+        self._nn_log = LogPanel(monitor.inner, height=6, label=_("nn_monitor_logs"), bg_outer=C.BG_CARD, scrollbar=True)
         self._nn_log.pack(fill="both", expand=True, pady=(0, 8))
 
         self._nn_plot = PlotCanvas(monitor.inner, bg=C.BG_CARD)
@@ -248,7 +249,7 @@ class NNBuilderView(ttk.Frame):
         for w in self._inspector.winfo_children():
             w.destroy()
         if self._selected_index is None or self._selected_index >= len(self._layers):
-            tk.Label(self._inspector, text="Selectionnez une couche.", bg=C.BG_CARD, fg=C.TEXT_DIM, font=F.SMALL).pack(anchor="w")
+            tk.Label(self._inspector, text=_("nn_msg_sel_layer"), bg=C.BG_CARD, fg=C.TEXT_DIM, font=F.SMALL).pack(anchor="w")
             return
 
         layer = self._layers[self._selected_index]
@@ -259,7 +260,7 @@ class NNBuilderView(ttk.Frame):
             name_label = tk.Label(self._inspector, text=name, bg=C.BG_CARD, fg=C.TEXT, font=F.SMALL)
             name_label.grid(row=r, column=0, sticky="w", pady=2, padx=(0, 8))
             if meta.get("desc"):
-                Tooltip(name_label, meta.get("desc"))
+                Tooltip(name_label, _(meta.get("desc")))
             control = self._build_layer_control(layer, name, meta)
             control.grid(row=r, column=1, sticky="w", pady=2)
 
@@ -313,9 +314,9 @@ class NNBuilderView(ttk.Frame):
         try:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(code)
-            show_info("Exporte", f"Code Keras exporte vers: {path}")
+            show_info(_("train_success_title"), _("nn_msg_exported").format(path))
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("train_err_title"), str(exc))
 
     def _generate_keras_code(self) -> str:
         lines = [
@@ -361,13 +362,13 @@ class NNBuilderView(ttk.Frame):
 
     def _train_model(self):
         if self._service.preprocessing_result is None:
-            show_error("Erreur", "Effectuez le preprocessing d'abord.")
+            show_error(_("train_err_title"), _("nn_err_prep_first"))
             return
 
         try:
             import tensorflow as tf
         except Exception as exc:
-            show_error("Erreur", f"TensorFlow est requis: {exc}")
+            show_error(_("train_err_title"), _("nn_err_tf_req").format(exc))
             return
 
         pr = self._service.preprocessing_result
@@ -377,7 +378,7 @@ class NNBuilderView(ttk.Frame):
 
         input_shape = self._resolve_input_shape(X_train)
         if input_shape is None:
-            show_error("Erreur", "Input shape invalide.")
+            show_error(_("train_err_title"), _("nn_err_input_shape"))
             return
 
         epochs = int(self._epochs_var.get() or 20)
@@ -392,9 +393,9 @@ class NNBuilderView(ttk.Frame):
         device = self._device_var.get()
         device_ctx = self._get_device_context(tf, device)
 
-        self._train_status_var.set("Entrainement en cours...")
+        self._train_status_var.set(_("nn_status_running"))
         self._train_progress_var.set(0)
-        self._nn_log.set_content("Demarrage entrainement...\n")
+        self._nn_log.set_content(_("nn_log_start"))
         self._nn_progress.configure(maximum=epochs)
 
         self._sync_loss_options(task_type)
@@ -417,7 +418,7 @@ class NNBuilderView(ttk.Frame):
                     )
                 self.after(0, lambda: self._on_train_finished(history))
             except Exception as exc:
-                self.after(0, lambda: show_error("Erreur", str(exc)))
+                self.after(0, lambda: show_error(_("train_err_title"), str(exc)))
 
         threading.Thread(target=thread, daemon=True).start()
 
@@ -442,9 +443,9 @@ class NNBuilderView(ttk.Frame):
         self._nn_log.append(msg)
 
     def _on_train_finished(self, history):
-        self._train_status_var.set("Entrainement termine")
+        self._train_status_var.set(_("nn_status_done"))
         self._render_history_plot(history.history)
-        show_info("Succes", "Reseau entraine.")
+        show_info(_("train_success_title"), _("nn_success_done"))
 
     def _render_history_plot(self, history: dict):
         if not history:

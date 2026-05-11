@@ -7,19 +7,21 @@ Docker Desktop-inspired light sidebar navigation.
 import tkinter as tk
 
 from ui.widgets import C, F
+from services.i18n import _
 
 
 class Sidebar(tk.Frame):
     """Sidebar with icon + label navigation buttons."""
 
-    NAV_ITEMS = [
-        ("Données", "data"),
-        ("Préprocessing", "preprocessing"),
-        ("Entraînement", "training"),
-        ("Évaluation & XAI", "evaluation"),
-        ("Prediction", "prediction"),
-        ("Modèles", "models"),
-    ]
+    def _get_nav_items(self):
+        return [
+            (_("nav_data"), "data"),
+            (_("nav_preprocessing"), "preprocessing"),
+            (_("nav_training"), "training"),
+            (_("nav_evaluation"), "evaluation"),
+            (_("nav_prediction"), "prediction"),
+            (_("nav_models"), "models"),
+        ]
 
     def __init__(self, parent, on_navigate=None, on_toggle_theme=None):
         super().__init__(parent, bg=C.BG_SIDEBAR, width=248)
@@ -65,7 +67,7 @@ class Sidebar(tk.Frame):
         nav_frame = tk.Frame(self, bg=C.BG_SIDEBAR)
         nav_frame.pack(fill="x", padx=8)
 
-        for label, view_name in self.NAV_ITEMS:
+        for label, view_name in self._get_nav_items():
             self._create_nav_button(nav_frame, label, view_name)
 
         tk.Frame(self, bg=C.BG_SIDEBAR).pack(fill="both", expand=True)
@@ -253,10 +255,10 @@ class Sidebar(tk.Frame):
         canvas.create_line(9, 9, 9, 11, fill=color, width=1.2, tags="stroke")
 
     def _theme_label_text(self):
-        return "THÈME ACTIF : CLAIR" if C.mode() == "light" else "THÈME ACTIF : SOMBRE"
+        return _("theme_light").upper() if C.mode() == "light" else _("theme_dark").upper()
 
     def _theme_button_text(self):
-        return "Passer en mode sombre" if C.mode() == "light" else "Passer en mode clair"
+        return f"☾  {_('theme_dark')}" if C.mode() == "light" else f"☀  {_('theme_light')}"
 
     def _toggle_theme(self):
         if self._on_toggle_theme:

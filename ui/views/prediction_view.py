@@ -24,6 +24,7 @@ from ui.widgets import (
 from ui.components.dialogs import show_error
 from ui.components.xai_panel import XAIPanel
 from services.prediction_controller import PredictionController
+from services.i18n import _
 
 
 class PredictionView(ttk.Frame):
@@ -63,16 +64,16 @@ class PredictionView(ttk.Frame):
         SectionHeader(
             header,
             icon="",
-            title="Prediction",
-            subtitle="Run inference on new data and explain predictions",
+            title=_("pred_title"),
+            subtitle=_("pred_subtitle"),
         ).pack(side="left")
 
         action_row = tk.Frame(header, bg=C.BG_MAIN)
         action_row.pack(side="right")
-        ModernButton(action_row, text="Refresh registry", style="secondary", command=self._refresh_registry, bg=C.BG_MAIN).pack(
+        ModernButton(action_row, text=_("pred_btn_refresh"), style="secondary", command=self._refresh_registry, bg=C.BG_MAIN).pack(
             side="left", padx=(0, 8), pady=6
         )
-        ModernButton(action_row, text="Load model", style="secondary", command=self._load_external_model, bg=C.BG_MAIN).pack(
+        ModernButton(action_row, text=_("pred_btn_load"), style="secondary", command=self._load_external_model, bg=C.BG_MAIN).pack(
             side="left", pady=6
         )
 
@@ -82,7 +83,7 @@ class PredictionView(ttk.Frame):
 
         top = tk.Frame(model_card.inner, bg=C.BG_CARD)
         top.pack(fill="x")
-        tk.Label(top, text="Model Registry", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(side="left")
+        tk.Label(top, text=_("eval_reg_title"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(side="left")
 
         self._model_select = ttk.Combobox(top, state="readonly", width=40)
         self._model_select.pack(side="right")
@@ -92,19 +93,19 @@ class PredictionView(ttk.Frame):
         meta_row.pack(fill="x", pady=(10, 0))
 
         self._meta_tiles = [
-            MetricTile(meta_row, value="-", label="Algorithm", color=C.ACCENT),
-            MetricTile(meta_row, value="-", label="Task", color=C.INFO),
-            MetricTile(meta_row, value="-", label="Features", color=C.SUCCESS),
-            MetricTile(meta_row, value="-", label="Class", color=C.WARNING),
+            MetricTile(meta_row, value="-", label=_("pred_meta_algo"), color=C.ACCENT),
+            MetricTile(meta_row, value="-", label=_("pred_meta_task"), color=C.INFO),
+            MetricTile(meta_row, value="-", label=_("pred_meta_feat"), color=C.SUCCESS),
+            MetricTile(meta_row, value="-", label=_("pred_meta_class"), color=C.WARNING),
         ]
         for tile in self._meta_tiles:
             tile.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
         meta_detail = tk.Frame(model_card.inner, bg=C.BG_CARD)
         meta_detail.pack(fill="x", pady=(12, 0))
-        self._features_panel = LogPanel(meta_detail, height=5, label="Features", bg_outer=C.BG_CARD)
+        self._features_panel = LogPanel(meta_detail, height=5, label=_("pred_meta_feat_title"), bg_outer=C.BG_CARD)
         self._features_panel.pack(side="left", fill="both", expand=True, padx=(0, 8))
-        self._params_panel = LogPanel(meta_detail, height=5, label="Hyperparameters", bg_outer=C.BG_CARD)
+        self._params_panel = LogPanel(meta_detail, height=5, label=_("pred_meta_hyper"), bg_outer=C.BG_CARD)
         self._params_panel.pack(side="left", fill="both", expand=True)
 
         # Main content
@@ -121,15 +122,15 @@ class PredictionView(ttk.Frame):
         # Input card
         input_card = Card(left, accent_color=C.ACCENT, pad=16)
         input_card.pack(fill="both", expand=True)
-        tk.Label(input_card.inner, text="Input Data", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(input_card.inner, text=_("pred_input_title"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
 
         self._input_tabs = ttk.Notebook(input_card.inner)
         self._input_tabs.pack(fill="both", expand=True, pady=(8, 0))
 
         self._manual_tab = tk.Frame(self._input_tabs, bg=C.BG_CARD)
         self._csv_tab = tk.Frame(self._input_tabs, bg=C.BG_CARD)
-        self._input_tabs.add(self._manual_tab, text="Manual Input")
-        self._input_tabs.add(self._csv_tab, text="CSV Upload")
+        self._input_tabs.add(self._manual_tab, text=_("pred_tab_manual"))
+        self._input_tabs.add(self._csv_tab, text=_("pred_tab_csv"))
 
         self._build_manual_tab(self._manual_tab)
         self._build_csv_tab(self._csv_tab)
@@ -137,30 +138,30 @@ class PredictionView(ttk.Frame):
         # Results card
         results_card = Card(left, accent_color=C.SUCCESS, pad=16)
         results_card.pack(fill="x", pady=(16, 0))
-        tk.Label(results_card.inner, text="Prediction Results", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(results_card.inner, text=_("pred_res_title"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
 
         res_row = tk.Frame(results_card.inner, bg=C.BG_CARD)
         res_row.pack(fill="x", pady=(8, 0))
-        self._pred_tile = MetricTile(res_row, value="-", label="Prediction", color=C.ACCENT)
+        self._pred_tile = MetricTile(res_row, value="-", label=_("pred_res_pred"), color=C.ACCENT)
         self._pred_tile.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        self._conf_tile = MetricTile(res_row, value="-", label="Confidence", color=C.INFO)
+        self._conf_tile = MetricTile(res_row, value="-", label=_("pred_res_conf"), color=C.INFO)
         self._conf_tile.pack(side="left", fill="x", expand=True)
 
-        self._proba_table = StyledTreeview(results_card.inner, columns=("Class", "Proba"), height=5, bg=C.BG_CARD)
+        self._proba_table = StyledTreeview(results_card.inner, columns=(_("pred_res_class"), _("pred_res_proba")), height=5, bg=C.BG_CARD)
         self._proba_table.pack(fill="x", pady=(10, 0))
 
-        self._batch_table = StyledTreeview(results_card.inner, columns=("Row", "Prediction", "Confidence"), height=6, bg=C.BG_CARD)
+        self._batch_table = StyledTreeview(results_card.inner, columns=(_("pred_res_row"), _("pred_res_pred"), _("pred_res_conf")), height=6, bg=C.BG_CARD)
         self._batch_table.pack(fill="x", pady=(10, 0))
 
         # What-if card
         what_if_card = Card(left, accent_color=C.WARNING, pad=16)
         what_if_card.pack(fill="both", expand=True, pady=(16, 0))
-        tk.Label(what_if_card.inner, text="What-if Analysis", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(what_if_card.inner, text=_("pred_wi_title"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
         self._what_if_frame = tk.Frame(what_if_card.inner, bg=C.BG_CARD)
         self._what_if_frame.pack(fill="x", pady=(8, 0))
 
         # XAI panel
-        self._xai_panel = XAIPanel(right, xai_service=self._controller.xai_service, title="Local XAI")
+        self._xai_panel = XAIPanel(right, xai_service=self._controller.xai_service, title=_("pred_xai_title"))
         self._xai_panel.pack(fill="both", expand=True)
 
     # ------------------------------------------------------------------
@@ -169,7 +170,7 @@ class PredictionView(ttk.Frame):
     def _build_manual_tab(self, parent: tk.Frame):
         top = tk.Frame(parent, bg=C.BG_CARD)
         top.pack(fill="x", padx=12, pady=(12, 0))
-        ModernButton(top, text="Predict", style="primary", command=self._run_predict_manual, bg=C.BG_CARD).pack(side="left")
+        ModernButton(top, text=_("pred_btn_predict"), style="primary", command=self._run_predict_manual, bg=C.BG_CARD).pack(side="left")
 
         form_wrap = tk.Frame(parent, bg=C.BG_CARD)
         form_wrap.pack(fill="both", expand=True, padx=12, pady=(12, 12))
@@ -186,12 +187,12 @@ class PredictionView(ttk.Frame):
     def _build_csv_tab(self, parent: tk.Frame):
         top = tk.Frame(parent, bg=C.BG_CARD)
         top.pack(fill="x", padx=12, pady=(12, 0))
-        ModernButton(top, text="Upload CSV", style="secondary", command=self._load_csv, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
-        ModernButton(top, text="Predict batch", style="primary", command=self._run_predict_csv, bg=C.BG_CARD).pack(side="left")
+        ModernButton(top, text=_("pred_btn_upload"), style="secondary", command=self._load_csv, bg=C.BG_CARD).pack(side="left", padx=(0, 8))
+        ModernButton(top, text=_("pred_btn_predict_csv"), style="primary", command=self._run_predict_csv, bg=C.BG_CARD).pack(side="left")
 
         self._csv_preview = tk.Frame(parent, bg=C.BG_CARD)
         self._csv_preview.pack(fill="both", expand=True, padx=12, pady=(12, 12))
-        self._csv_empty = tk.Label(self._csv_preview, text="Upload a CSV file to preview", font=F.BODY, bg=C.BG_CARD, fg=C.TEXT_MUTED)
+        self._csv_empty = tk.Label(self._csv_preview, text=_("pred_csv_empty"), font=F.BODY, bg=C.BG_CARD, fg=C.TEXT_MUTED)
         self._csv_empty.pack(pady=24)
 
     # ------------------------------------------------------------------
@@ -271,7 +272,7 @@ class PredictionView(ttk.Frame):
 
     def _load_external_model(self):
         filepath = filedialog.askopenfilename(
-            title="Load model",
+            title=_("eval_file_model"),
             filetypes=[("Model Files", "*.pkl *.joblib"), ("Pickle", "*.pkl"), ("Joblib", "*.joblib")],
         )
         if not filepath:
@@ -280,7 +281,7 @@ class PredictionView(ttk.Frame):
             self._controller.register_external_model(filepath)
             self._refresh_registry()
         except Exception as exc:
-            show_error("Error", str(exc))
+            show_error(_("pred_err_title"), str(exc))
 
     # ------------------------------------------------------------------
     # Manual input
@@ -291,7 +292,7 @@ class PredictionView(ttk.Frame):
         self._manual_fields.clear()
 
         if not self._input_feature_names:
-            tk.Label(self._manual_form, text="Select a model to load features", bg=C.BG_CARD, fg=C.TEXT_MUTED).pack(anchor="w")
+            tk.Label(self._manual_form, text=_("pred_msg_sel_feat"), bg=C.BG_CARD, fg=C.TEXT_MUTED).pack(anchor="w")
             return
 
         for idx, name in enumerate(self._input_feature_names):
@@ -334,12 +335,12 @@ class PredictionView(ttk.Frame):
 
     def _run_predict_manual(self):
         if not self._active_entry_id:
-            show_error("Error", "Select a model")
+            show_error(_("pred_err_title"), _("pred_err_sel_model"))
             return
         try:
             values = self._collect_manual_values()
         except Exception as exc:
-            show_error("Error", str(exc))
+            show_error(_("pred_err_title"), str(exc))
             return
 
         self._predict_values(values)
@@ -350,7 +351,7 @@ class PredictionView(ttk.Frame):
     # ------------------------------------------------------------------
     def _load_csv(self):
         filepath = filedialog.askopenfilename(
-            title="Upload CSV",
+            title=_("pred_btn_upload"),
             filetypes=[("CSV", "*.csv"), ("All Files", "*.*")],
         )
         if not filepath:
@@ -358,7 +359,7 @@ class PredictionView(ttk.Frame):
         try:
             df = pd.read_csv(filepath)
         except Exception as exc:
-            show_error("Error", str(exc))
+            show_error(_("pred_err_title"), str(exc))
             return
 
         self._csv_df = df
@@ -378,10 +379,10 @@ class PredictionView(ttk.Frame):
 
     def _run_predict_csv(self):
         if not self._active_entry_id:
-            show_error("Error", "Select a model")
+            show_error(_("pred_err_title"), _("pred_err_sel_model"))
             return
         if self._csv_df is None:
-            show_error("Error", "Upload a CSV file")
+            show_error(_("pred_err_title"), _("pred_err_csv_up"))
             return
 
         def _compute():
@@ -461,7 +462,7 @@ class PredictionView(ttk.Frame):
 
         if not numeric_items:
             self._what_if_values = None
-            tk.Label(self._what_if_frame, text="Aucun parametre numerique pour le what-if", bg=C.BG_CARD, fg=C.TEXT_MUTED).pack(anchor="w")
+            tk.Label(self._what_if_frame, text=_("pred_msg_wi_empty"), bg=C.BG_CARD, fg=C.TEXT_MUTED).pack(anchor="w")
             return
 
         self._what_if_values = np.array(values, dtype=object)
@@ -517,6 +518,6 @@ class PredictionView(ttk.Frame):
             self.after(0, lambda: on_done(result))
 
         def _err(exc):
-            self.after(0, lambda: show_error("Error", str(exc)))
+            self.after(0, lambda: show_error(_("pred_err_title"), str(exc)))
 
         self._controller.run_async(fn, _done, _err)

@@ -10,6 +10,7 @@ from tkinter import ttk
 from ui.widgets import C, F, Card, ModernButton, SectionHeader, StyledTreeview, Badge, bind_mousewheel_to
 from ui.components.dialogs import show_error, show_info, ask_confirm
 from services.pipeline_service import PipelineService
+from services.i18n import _
 
 
 class ModelsView(ttk.Frame):
@@ -38,18 +39,18 @@ class ModelsView(ttk.Frame):
         # ── Header ───────────────────────────────────────────────
         header = tk.Frame(ct, bg=C.BG_MAIN)
         header.pack(fill="x", padx=px, pady=(24, 0))
-        SectionHeader(header, icon="", title="Modèles",
-                      subtitle="Sauvegardez, chargez et gérez vos modèles entraînés").pack(side="left")
+        SectionHeader(header, icon="", title=_("models_title"),
+                      subtitle=_("models_subtitle")).pack(side="left")
 
         btn_row = tk.Frame(header, bg=C.BG_MAIN)
         btn_row.pack(side="right")
-        ModernButton(btn_row, text="Prediction", icon="",
+        ModernButton(btn_row, text=_("models_btn_pred"), icon="",
                  style="secondary", command=lambda: self._navigate_to("prediction"),
                  bg=C.BG_MAIN).pack(side="left", padx=(0, 8), pady=6)
-        ModernButton(btn_row, text="Sauvegarder tout", icon="",
+        ModernButton(btn_row, text=_("models_btn_save_all"), icon="",
                      style="primary", command=self._on_save_all,
                      bg=C.BG_MAIN).pack(side="left", padx=(0, 8), pady=6)
-        ModernButton(btn_row, text="Rafraîchir", icon="",
+        ModernButton(btn_row, text=_("models_btn_refresh"), icon="",
                      style="secondary", command=self._refresh,
                      bg=C.BG_MAIN).pack(side="left", pady=6)
 
@@ -57,22 +58,22 @@ class ModelsView(ttk.Frame):
         mem_card = Card(ct, accent_color=C.INFO, pad=16)
         mem_card.pack(fill="x", padx=px, pady=(16, 0))
 
-        tk.Label(mem_card.inner, text="Modèles en mémoire", font=F.H3,
+        tk.Label(mem_card.inner, text=_("models_mem_title"), font=F.H3,
                  bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w", pady=(0, 8))
 
         self._memory_frame = tk.Frame(mem_card.inner, bg=C.BG_CARD)
         self._memory_frame.pack(fill="x")
 
         # ── Saved models table ───────────────────────────────────
-        tk.Label(ct, text="Modèles sur disque", font=F.H2,
+        tk.Label(ct, text=_("models_disk_title"), font=F.H2,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(16, 16))
 
         self._table_container = tk.Frame(ct, bg=C.BG_MAIN)
         self._table_container.pack(fill="both", expand=True, padx=px, pady=(0, 16))
 
-        cols = ("Fichier", "Classe", "Tâche", "Cible", "Taille (KB)", "Date")
-        widths = {"Fichier": 220, "Classe": 180, "Tâche": 100,
-                  "Cible": 120, "Taille (KB)": 90, "Date": 160}
+        cols = (_("models_col_file"), _("models_col_class"), _("models_col_task"), _("models_col_target"), _("models_col_size"), _("models_col_date"))
+        widths = {cols[0]: 220, cols[1]: 180, cols[2]: 100,
+                  cols[3]: 120, cols[4]: 90, cols[5]: 160}
         self._stv = StyledTreeview(self._table_container, columns=cols,
                                     col_widths=widths, height=8)
         self._stv.pack(fill="both", expand=True)
@@ -81,7 +82,7 @@ class ModelsView(ttk.Frame):
         actions = tk.Frame(ct, bg=C.BG_MAIN)
         actions.pack(fill="x", padx=px, pady=(16, 24))
 
-        ModernButton(actions, text="Supprimer le modèle sélectionné", icon="",
+        ModernButton(actions, text=_("models_btn_del"), icon="",
                      style="danger", command=self._on_delete,
                      bg=C.BG_MAIN).pack(side="right")
 
@@ -97,7 +98,7 @@ class ModelsView(ttk.Frame):
         models = self._service.trained_models
         if not models:
             tk.Label(self._memory_frame,
-                     text="Aucun modèle en mémoire — entraînez des modèles d'abord",
+                     text=_("models_msg_no_mem"),
                      font=F.BODY, bg=C.BG_CARD, fg=C.TEXT_MUTED).pack(anchor="w", pady=4)
             return
 
@@ -115,7 +116,7 @@ class ModelsView(ttk.Frame):
             tk.Label(row, text=type(entry["model"]).__name__, font=F.SMALL,
                      bg=C.BG_CARD, fg=C.TEXT_MUTED).pack(side="left", padx=(12, 0))
 
-            ModernButton(row, text="Sauvegarder", style="secondary",
+            ModernButton(row, text=_("models_btn_save"), style="secondary",
                          command=lambda n=name: self._on_save_single(n),
                          bg=C.BG_CARD, width=120).pack(side="right")
 
@@ -136,26 +137,26 @@ class ModelsView(ttk.Frame):
     def _on_save_single(self, model_name):
         try:
             path = self._service.save_trained_model(model_name)
-            show_info("Succès", f"Modèle '{model_name}' sauvegardé :\n{path}")
+            show_info(_("models_success_title"), _("models_success_saved").format(model_name, path))
             self._refresh()
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("models_err_title"), str(exc))
 
     def _on_save_all(self):
         if not self._service.trained_models:
-            show_error("Erreur", "Aucun modèle à sauvegarder.")
+            show_error(_("models_err_title"), _("models_err_no_save"))
             return
         try:
             paths = self._service.save_all_trained_models()
-            show_info("Succès", f"{len(paths)} modèle(s) sauvegardé(s).")
+            show_info(_("models_success_title"), _("models_success_save_all").format(len(paths)))
             self._refresh()
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("models_err_title"), str(exc))
 
     def _on_delete(self):
         sel = self._stv.tree.selection()
         if not sel:
-            show_error("Erreur", "Sélectionnez un modèle à supprimer.")
+            show_error(_("models_err_title"), _("models_err_sel_del"))
             return
 
         item = self._stv.tree.item(sel[0])
@@ -163,15 +164,15 @@ class ModelsView(ttk.Frame):
         filepath = item["tags"][0] if item["tags"] else None
 
         if not filepath:
-            show_error("Erreur", "Chemin introuvable.")
+            show_error(_("models_err_title"), _("models_err_path"))
             return
-        if not ask_confirm("Confirmation", f"Supprimer '{filename}' ?"):
+        if not ask_confirm(_("models_confirm_title"), _("models_confirm_del").format(filename)):
             return
         if self._service.delete_saved_model(filepath):
-            show_info("Succès", f"'{filename}' supprimé.")
+            show_info(_("models_success_title"), _("models_success_del").format(filename))
             self._refresh()
         else:
-            show_error("Erreur", "Échec de la suppression.")
+            show_error(_("models_err_title"), _("models_err_del_fail"))
 
     def _navigate_to(self, view_name: str) -> None:
         root = self.winfo_toplevel()

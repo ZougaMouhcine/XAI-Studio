@@ -11,6 +11,7 @@ from tkinter import ttk
 from ui.widgets import C, F, Card, MetricTile, ModernButton, SectionHeader, StyledTreeview, bind_mousewheel_to
 from ui.components.dialogs import ask_open_csv, show_error
 from services.pipeline_service import PipelineService
+from services.i18n import _
 
 
 class DataView(ttk.Frame):
@@ -44,21 +45,21 @@ class DataView(ttk.Frame):
         header_row = tk.Frame(content, bg=C.BG_MAIN)
         header_row.pack(fill="x", padx=pad_x, pady=(24, 0))
 
-        SectionHeader(header_row, icon="", title="Données",
-                      subtitle="Chargez et explorez votre dataset CSV").pack(side="left")
+        SectionHeader(header_row, icon="", title=_("data_title"),
+                      subtitle=_("data_subtitle")).pack(side="left")
 
         controls = tk.Frame(header_row, bg=C.BG_MAIN)
         controls.pack(side="right")
 
         ttk.Checkbutton(
             controls,
-            text="Première ligne = titres colonnes",
+            text=_("data_header_checkbox"),
             variable=self._has_header_var,
         ).pack(side="left", padx=(0, 12), pady=6)
 
         ModernButton(
             controls,
-            text="Charger un CSV",
+            text=_("data_btn"),
             icon="",
             style="primary",
             command=self._on_load,
@@ -76,10 +77,10 @@ class DataView(ttk.Frame):
         self._info_text = tk.Frame(self._info_card.inner, bg=C.BG_CARD)
         self._info_text.pack(fill="x", expand=True)
 
-        self._info_name = tk.Label(self._info_text, text="Aucun fichier chargé",
+        self._info_name = tk.Label(self._info_text, text=_("data_no_file"),
                         font=F.H4, bg=C.BG_CARD, fg=C.TEXT_SEC)
         self._info_name.pack(anchor="center")
-        self._info_detail = tk.Label(self._info_text, text="Utilisez le bouton ci-dessus pour charger un CSV",
+        self._info_detail = tk.Label(self._info_text, text=_("data_detail"),
                                       font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_MUTED)
         self._info_detail.pack(anchor="center")
 
@@ -89,11 +90,11 @@ class DataView(ttk.Frame):
 
         # Placeholder tiles
         placeholders = [
-            ("", "—", "Lignes", C.ACCENT),
-            ("", "—", "Colonnes", C.INFO),
-            ("", "—", "Numériques", C.SUCCESS),
-            ("", "—", "Catégorielles", C.WARNING),
-            ("", "—", "Val. manquantes", C.DANGER),
+            ("", "—", _("data_rows"), C.ACCENT),
+            ("", "—", _("data_cols"), C.INFO),
+            ("", "—", _("data_num"), C.SUCCESS),
+            ("", "—", _("data_cat"), C.WARNING),
+            ("", "—", _("data_miss"), C.DANGER),
         ]
         self._tiles = []
         for icon, val, lbl, color in placeholders:
@@ -105,7 +106,7 @@ class DataView(ttk.Frame):
         table_header = tk.Frame(content, bg=C.BG_MAIN)
         table_header.pack(fill="x", padx=pad_x, pady=(16, 0))
 
-        tk.Label(table_header, text="Aperçu des données", font=F.H2,
+        tk.Label(table_header, text=_("data_preview"), font=F.H2,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(side="left")
         self._rows_label = tk.Label(table_header, text="",
                                      font=F.SMALL, bg=C.BG_MAIN, fg=C.TEXT_MUTED)
@@ -116,7 +117,7 @@ class DataView(ttk.Frame):
 
         # Empty-state message
         self._empty = tk.Label(self._table_container,
-                                text="Les données apparaîtront ici après chargement",
+                                text=_("data_empty"),
                                 font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT_DIM)
         self._empty.pack(pady=24)
 
@@ -124,7 +125,7 @@ class DataView(ttk.Frame):
         nav_row.pack(anchor="e", padx=pad_x, pady=(0, 16))
         ModernButton(
             nav_row,
-            text="Passer au préprocessing",
+            text=_("data_next"),
             style="primary",
             command=lambda: self._navigate_to("preprocessing"),
             bg=C.BG_MAIN,
@@ -138,7 +139,7 @@ class DataView(ttk.Frame):
         try:
             df = self._service.load_data(filepath, has_header=self._has_header_var.get())
         except Exception as exc:
-            show_error("Erreur de chargement", str(exc))
+            show_error(_("data_err_title"), str(exc))
             return
 
         self._update_info(filepath, df)
@@ -150,9 +151,9 @@ class DataView(ttk.Frame):
         n, c = df.shape
         target = self._service.target_column or "—"
         self._info_name.configure(text=name, fg=C.TEXT)
-        header_mode = "avec titres" if self._has_header_var.get() else "sans titres"
+        header_mode = _("data_with_headers") if self._has_header_var.get() else _("data_no_headers")
         self._info_detail.configure(
-            text=f"{n:,} lignes  ×  {c} colonnes   ·   {header_mode}   ·   Cible : {target}")
+            text=f"{n:,} {_('data_rows').lower()}  ×  {c} {_('data_cols').lower()}   ·   {header_mode}   ·   {_('data_target')} : {target}")
 
     def _update_metrics(self):
         s = self._service.get_data_summary()
@@ -182,7 +183,7 @@ class DataView(ttk.Frame):
         for _, row in df.head(100).iterrows():
             stv.tree.insert("", "end", values=[str(v) for v in row])
 
-        self._rows_label.configure(text=f"Affichage : {min(len(df), 100)} / {len(df)} lignes")
+        self._rows_label.configure(text=f"{_('data_displaying').format(min(len(df), 100), len(df))}")
 
     def _navigate_to(self, view_name: str) -> None:
         root = self.winfo_toplevel()

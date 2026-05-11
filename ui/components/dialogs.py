@@ -7,12 +7,13 @@ Styled file pickers, message boxes, and a polished progress window.
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from ui.widgets import C, F
+from services.i18n import _
 
 
 def ask_open_csv() -> str | None:
     """Open a file dialog to select a CSV/Excel dataset."""
     path = filedialog.askopenfilename(
-        title="Ouvrir un dataset",
+        title=_("dlg_open_dataset"),
         filetypes=[
             ("Tabular Files", "*.csv *.xlsx *.xls"),
             ("CSV Files", "*.csv"),
@@ -25,7 +26,7 @@ def ask_open_csv() -> str | None:
 
 def ask_save_pipeline_file() -> str | None:
     path = filedialog.asksaveasfilename(
-        title="Sauvegarder le pipeline",
+        title=_("dlg_save_pipeline"),
         defaultextension=".joblib",
         filetypes=[("Joblib", "*.joblib"), ("All Files", "*.*")],
     )
@@ -34,7 +35,7 @@ def ask_save_pipeline_file() -> str | None:
 
 def ask_open_pipeline_file() -> str | None:
     path = filedialog.askopenfilename(
-        title="Charger un pipeline",
+        title=_("dlg_load_pipeline"),
         filetypes=[("Joblib", "*.joblib"), ("All Files", "*.*")],
     )
     return path if path else None
@@ -42,7 +43,7 @@ def ask_open_pipeline_file() -> str | None:
 
 def ask_export_python_file() -> str | None:
     path = filedialog.asksaveasfilename(
-        title="Exporter le preprocessing Python",
+        title=_("dlg_export_py"),
         defaultextension=".py",
         filetypes=[("Python", "*.py"), ("All Files", "*.*")],
     )
@@ -99,7 +100,7 @@ class ProgressDialog(tk.Toplevel):
         inner.pack(fill="both", expand=True, padx=28, pady=20)
 
         # Title
-        self._label = tk.Label(inner, text="Initialisation…",
+        self._label = tk.Label(inner, text=_("dlg_init"),
                                 font=F.H4, bg=C.BG_CARD, fg=C.TEXT)
         self._label.pack(anchor="w", pady=(0, 12))
 

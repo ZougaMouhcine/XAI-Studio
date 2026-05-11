@@ -13,6 +13,7 @@ from ui.widgets import C, F, Card, ModernButton, SectionHeader, StyledTreeview
 from ui.components.plot_canvas import PlotCanvas
 from ui.components.dialogs import show_error
 from services.pipeline_service import PipelineService
+from services.i18n import _
 
 from utils.logger import get_logger
 
@@ -48,8 +49,8 @@ class FairnessView(ttk.Frame):
         header = tk.Frame(ct, bg=C.BG_MAIN)
         header.pack(fill="x", padx=px, pady=(24, 0))
         SectionHeader(
-            header, icon="⚖", title="Détection de Biais",
-            subtitle="Analysez l'équité du modèle par attribut sensible",
+            header, icon="⚖", title=_("fair_title"),
+            subtitle=_("fair_subtitle"),
         ).pack(side="left")
 
         # ── Controls card ───────────────────────────────────
@@ -59,13 +60,13 @@ class FairnessView(ttk.Frame):
         row1 = tk.Frame(ctrl_card.inner, bg=C.BG_CARD)
         row1.pack(fill="x", pady=(0, 10))
 
-        tk.Label(row1, text="Attribut sensible :", font=F.BODY,
+        tk.Label(row1, text=_("fair_lbl_sens"), font=F.BODY,
                  bg=C.BG_CARD, fg=C.TEXT).pack(side="left", padx=(0, 8))
 
         self._sensitive_combo = ttk.Combobox(row1, state="readonly", width=25)
         self._sensitive_combo.pack(side="left", padx=(0, 16))
 
-        tk.Label(row1, text="Métrique du graphique :", font=F.BODY,
+        tk.Label(row1, text=_("fair_lbl_metric"), font=F.BODY,
                  bg=C.BG_CARD, fg=C.TEXT).pack(side="left", padx=(0, 8))
 
         self._metric_combo = ttk.Combobox(
@@ -79,12 +80,12 @@ class FairnessView(ttk.Frame):
         row2.pack(fill="x")
 
         ModernButton(
-            row2, text="Analyser le biais", icon="▶",
+            row2, text=_("fair_btn_analyze"), icon="▶",
             style="primary", command=self._run_analysis, bg=C.BG_CARD,
         ).pack(side="left")
 
         ModernButton(
-            row2, text="Exporter PNG", icon="💾",
+            row2, text=_("fair_btn_export"), icon="💾",
             style="secondary",
             command=lambda: self._plot_canvas.export_png(),
             bg=C.BG_CARD,
@@ -95,22 +96,22 @@ class FairnessView(ttk.Frame):
         self._alerts_frame.pack(fill="x", padx=px, pady=(12, 0))
 
         # ── Summary metrics ─────────────────────────────────
-        tk.Label(ct, text="Métriques de résumé", font=F.H2,
+        tk.Label(ct, text=_("fair_summary_title"), font=F.H2,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(12, 8))
 
         self._summary_frame = tk.Frame(ct, bg=C.BG_MAIN)
         self._summary_frame.pack(fill="x", padx=px)
 
         # ── Per-group table ─────────────────────────────────
-        tk.Label(ct, text="Métriques par groupe", font=F.H2,
+        tk.Label(ct, text=_("fair_table_title"), font=F.H2,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(16, 8))
 
         self._table_container = tk.Frame(ct, bg=C.BG_MAIN)
         self._table_container.pack(fill="x", padx=px, pady=(0, 8))
 
-        cols = ("Groupe", "N", "Exactitude", "Taux Pos.", "TPR", "FPR")
-        widths = {"Groupe": 150, "N": 80, "Exactitude": 100,
-                  "Taux Pos.": 100, "TPR": 80, "FPR": 80}
+        cols = (_("fair_col_grp"), _("fair_col_n"), _("fair_col_acc"), _("fair_col_pos"), _("fair_col_tpr"), _("fair_col_fpr"))
+        widths = {cols[0]: 150, cols[1]: 80, cols[2]: 100,
+                  cols[3]: 100, cols[4]: 80, cols[5]: 80}
         self._stv = StyledTreeview(
             self._table_container, columns=cols, col_widths=widths, height=6,
         )
@@ -138,29 +139,29 @@ class FairnessView(ttk.Frame):
     def _run_analysis(self):
         sensitive_col = self._sensitive_combo.get()
         if not sensitive_col:
-            show_error("Erreur", "Sélectionnez un attribut sensible.")
+            show_error(_("fair_err_title"), _("fair_err_no_sens"))
             return
 
         try:
             model, meta = self._service.get_active_model()
             if model is None:
-                raise RuntimeError("Aucun modèle disponible.")
+                raise RuntimeError(_("fair_err_no_model"))
         except Exception as e:
-            show_error("Erreur", str(e))
+            show_error(_("fair_err_title"), str(e))
             return
 
         pr = self._service.preprocessing_result
         if pr is None:
-            show_error("Erreur", "Données non préprocessées.")
+            show_error(_("fair_err_title"), _("fair_err_no_data"))
             return
 
         df = self._service.dataframe
         if df is None:
-            show_error("Erreur", "Aucun dataset chargé.")
+            show_error(_("fair_err_title"), _("fair_err_no_ds"))
             return
 
         if sensitive_col not in df.columns:
-            show_error("Erreur", f"Colonne '{sensitive_col}' introuvable dans le dataset.")
+            show_error(_("fair_err_title"), _("fair_err_col_not_found").format(sensitive_col))
             return
 
         metric_key = self._metric_combo.get()
@@ -216,7 +217,7 @@ class FairnessView(ttk.Frame):
             except Exception as exc:
                 logger.error("Fairness analysis error: %s", exc)
                 self.after(
-                    0, lambda: show_error("Erreur Analyse de Biais", str(exc))
+                    0, lambda: show_error(_("fair_err_analysis_title"), str(exc))
                 )
 
         threading.Thread(target=_compute, daemon=True).start()
@@ -232,7 +233,7 @@ class FairnessView(ttk.Frame):
             alert_card.pack(fill="x", pady=(0, 4))
 
             tk.Label(
-                alert_card.inner, text="🚨 Biais détecté",
+                alert_card.inner, text=_("fair_alert_bias"),
                 font=F.H3, bg=C.BG_CARD, fg=C.DANGER,
             ).pack(anchor="w", pady=(0, 6))
 
@@ -247,7 +248,7 @@ class FairnessView(ttk.Frame):
             ok_card.pack(fill="x")
             tk.Label(
                 ok_card.inner,
-                text="✅ Aucun biais significatif détecté — Le modèle semble équitable",
+                text=_("fair_alert_ok"),
                 font=F.H4, bg=C.BG_CARD, fg=C.SUCCESS,
             ).pack(anchor="w")
 

@@ -26,6 +26,7 @@ from ui.components.xai_panel import XAIPanel
 from ui.components.dialogs import show_error, show_info
 from services.evaluation_controller import EvaluationController
 from services.visualization_service import VisualizationService
+from services.i18n import _
 
 
 class EvaluationView(ttk.Frame):
@@ -65,22 +66,22 @@ class EvaluationView(ttk.Frame):
         SectionHeader(
             header,
             icon="",
-            title="Evaluation & Explainable AI",
-            subtitle="Analysez, comparez et expliquez vos modeles avec des visuels modernes",
+            title=_("eval_title"),
+            subtitle=_("eval_subtitle"),
         ).pack(side="left")
 
         action_row = tk.Frame(header, bg=C.BG_MAIN)
         action_row.pack(side="right")
-        ModernButton(action_row, text="Rafraichir", style="secondary", command=self._refresh_registry, bg=C.BG_MAIN).pack(
+        ModernButton(action_row, text=_("eval_btn_refresh"), style="secondary", command=self._refresh_registry, bg=C.BG_MAIN).pack(
             side="left", padx=(0, 8), pady=6
         )
-        ModernButton(action_row, text="Charger modele", style="secondary", command=self._load_external_model, bg=C.BG_MAIN).pack(
+        ModernButton(action_row, text=_("eval_btn_load"), style="secondary", command=self._load_external_model, bg=C.BG_MAIN).pack(
             side="left", padx=(0, 8), pady=6
         )
-        ModernButton(action_row, text="Importer artefacts", style="secondary", command=self._import_artifacts, bg=C.BG_MAIN).pack(
+        ModernButton(action_row, text=_("eval_btn_import"), style="secondary", command=self._import_artifacts, bg=C.BG_MAIN).pack(
             side="left", padx=(0, 8), pady=6
         )
-        ModernButton(action_row, text="Evaluer selection", style="primary", command=self._on_evaluate_selected, bg=C.BG_MAIN).pack(
+        ModernButton(action_row, text=_("eval_btn_eval_sel"), style="primary", command=self._on_evaluate_selected, bg=C.BG_MAIN).pack(
             side="left", pady=6
         )
 
@@ -88,18 +89,18 @@ class EvaluationView(ttk.Frame):
         registry_card = Card(ct, accent_color=C.INFO, pad=16)
         registry_card.pack(fill="x", padx=px, pady=(16, 0))
 
-        tk.Label(registry_card.inner, text="Model Registry", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
+        tk.Label(registry_card.inner, text=_("eval_reg_title"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w")
         self._registry_hint = tk.Label(
             registry_card.inner,
-            text="Selectionnez un ou plusieurs modeles pour lancer l'evaluation",
+            text=_("eval_reg_hint"),
             font=F.SMALL,
             bg=C.BG_CARD,
             fg=C.TEXT_MUTED,
         )
         self._registry_hint.pack(anchor="w", pady=(2, 8))
 
-        columns = ("Nom", "Source", "Tache", "Dataset", "Entraine", "Statut")
-        widths = {"Nom": 220, "Source": 100, "Tache": 120, "Dataset": 140, "Entraine": 140, "Statut": 90}
+        columns = (_("eval_col_name"), _("eval_col_src"), _("eval_col_task"), _("eval_col_data"), _("eval_col_trained"), _("eval_col_status"))
+        widths = {columns[0]: 220, columns[1]: 100, columns[2]: 120, columns[3]: 140, columns[4]: 140, columns[5]: 90}
         self._registry_table = StyledTreeview(registry_card.inner, columns=columns, col_widths=widths, height=6, selectmode="extended")
         self._registry_table.pack(fill="x")
         self._registry_table.tree.bind("<<TreeviewSelect>>", self._on_registry_select)
@@ -110,14 +111,14 @@ class EvaluationView(ttk.Frame):
 
         active_row = tk.Frame(self._active_card.inner, bg=C.BG_CARD)
         active_row.pack(fill="x")
-        self._active_name = tk.Label(active_row, text="Modele actif: —", font=F.H3, bg=C.BG_CARD, fg=C.TEXT)
+        self._active_name = tk.Label(active_row, text=_("eval_act_title_none"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT)
         self._active_name.pack(side="left")
         self._active_badge_wrap = tk.Frame(active_row, bg=C.BG_CARD)
         self._active_badge_wrap.pack(side="right")
 
         self._active_meta = tk.Label(
             self._active_card.inner,
-            text="Selectionnez un modele pour afficher les details",
+            text=_("eval_act_meta_none"),
             font=F.SMALL,
             bg=C.BG_CARD,
             fg=C.TEXT_MUTED,
@@ -127,7 +128,7 @@ class EvaluationView(ttk.Frame):
         # Metrics card
         metrics_card = Card(ct, accent_color=C.SUCCESS, pad=16)
         metrics_card.pack(fill="x", padx=px, pady=(16, 0))
-        tk.Label(metrics_card.inner, text="Metrics", font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w", pady=(0, 8))
+        tk.Label(metrics_card.inner, text=_("eval_metrics_title"), font=F.H3, bg=C.BG_CARD, fg=C.TEXT).pack(anchor="w", pady=(0, 8))
         self._metrics_row = tk.Frame(metrics_card.inner, bg=C.BG_CARD)
         self._metrics_row.pack(fill="x")
         self._metric_tiles = [
@@ -141,27 +142,27 @@ class EvaluationView(ttk.Frame):
 
         report_row = tk.Frame(ct, bg=C.BG_MAIN)
         report_row.pack(fill="x", padx=px, pady=(10, 0))
-        ModernButton(report_row, text="Generer HTML", style="secondary", command=lambda: self._generate_report("html"), bg=C.BG_MAIN).pack(
+        ModernButton(report_row, text=_("eval_btn_html"), style="secondary", command=lambda: self._generate_report("html"), bg=C.BG_MAIN).pack(
             side="left", padx=(0, 8)
         )
-        ModernButton(report_row, text="Generer PDF", style="secondary", command=lambda: self._generate_report("pdf"), bg=C.BG_MAIN).pack(
+        ModernButton(report_row, text=_("eval_btn_pdf"), style="secondary", command=lambda: self._generate_report("pdf"), bg=C.BG_MAIN).pack(
             side="left"
         )
 
         # Visualization notebook
-        tk.Label(ct, text="Visualisations", font=F.H2, bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(18, 10))
+        tk.Label(ct, text=_("eval_viz_title"), font=F.H2, bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(18, 10))
         self._plot_notebook = ttk.Notebook(ct)
         self._plot_notebook.pack(fill="both", expand=True, padx=px)
 
         self._build_plot_tabs()
 
         # Comparison section
-        tk.Label(ct, text="Comparaison des modeles", font=F.H2, bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(20, 8))
+        tk.Label(ct, text=_("eval_comp_title"), font=F.H2, bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(20, 8))
         self._comparison_table = StyledTreeview(ct, columns=("Model", "Task", "Score", "Training Time", "Complexity", "Status"), height=6)
         self._comparison_table.pack(fill="x", padx=px, pady=(0, 16))
 
         # XAI notebook
-        tk.Label(ct, text="Explainable AI", font=F.H2, bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(10, 8))
+        tk.Label(ct, text=_("eval_xai_title"), font=F.H2, bg=C.BG_MAIN, fg=C.TEXT).pack(anchor="w", padx=px, pady=(10, 8))
         self._xai_notebook = ttk.Notebook(ct)
         self._xai_notebook.pack(fill="both", expand=True, padx=px, pady=(0, 24))
         self._build_xai_tabs()
@@ -169,7 +170,7 @@ class EvaluationView(ttk.Frame):
     def _build_plot_tabs(self):
         # Classification
         self._tab_classif = tk.Frame(self._plot_notebook, bg=C.BG_MAIN)
-        self._plot_notebook.add(self._tab_classif, text="Classification")
+        self._plot_notebook.add(self._tab_classif, text=_("eval_tab_classif"))
 
         class_row = tk.Frame(self._tab_classif, bg=C.BG_MAIN)
         class_row.pack(fill="both", expand=True, padx=12, pady=12)
@@ -186,12 +187,12 @@ class EvaluationView(ttk.Frame):
 
         self._pr_canvas = PlotCanvas(right)
         self._pr_canvas.pack(fill="both", expand=True, pady=(0, 10))
-        self._report_panel = LogPanel(right, height=12, label="Classification report")
+        self._report_panel = LogPanel(right, height=12, label=_("eval_report_lbl"))
         self._report_panel.pack(fill="both", expand=True)
 
         # Regression
         self._tab_reg = tk.Frame(self._plot_notebook, bg=C.BG_MAIN)
-        self._plot_notebook.add(self._tab_reg, text="Regression")
+        self._plot_notebook.add(self._tab_reg, text=_("eval_tab_reg"))
 
         reg_row = tk.Frame(self._tab_reg, bg=C.BG_MAIN)
         reg_row.pack(fill="both", expand=True, padx=12, pady=12)
@@ -205,7 +206,7 @@ class EvaluationView(ttk.Frame):
 
         # Clustering
         self._tab_cluster = tk.Frame(self._plot_notebook, bg=C.BG_MAIN)
-        self._plot_notebook.add(self._tab_cluster, text="Clustering")
+        self._plot_notebook.add(self._tab_cluster, text=_("eval_tab_clust"))
 
         cl_row = tk.Frame(self._tab_cluster, bg=C.BG_MAIN)
         cl_row.pack(fill="both", expand=True, padx=12, pady=12)
@@ -218,89 +219,89 @@ class EvaluationView(ttk.Frame):
     def _build_xai_tabs(self):
         # Feature importance
         tab_fi = tk.Frame(self._xai_notebook, bg=C.BG_MAIN)
-        self._xai_notebook.add(tab_fi, text="Feature Importance")
+        self._xai_notebook.add(tab_fi, text=_("eval_xai_fi"))
 
         fi_controls = tk.Frame(tab_fi, bg=C.BG_MAIN)
         fi_controls.pack(fill="x", padx=12, pady=(12, 0))
-        ModernButton(fi_controls, text="Calculer", style="primary", command=self._run_fi, bg=C.BG_MAIN).pack(side="left")
+        ModernButton(fi_controls, text=_("eval_btn_calc"), style="primary", command=self._run_fi, bg=C.BG_MAIN).pack(side="left")
         self._fi_canvas = PlotCanvas(tab_fi)
         self._fi_canvas.pack(fill="both", expand=True, padx=12, pady=12)
 
         # SHAP
         tab_shap = tk.Frame(self._xai_notebook, bg=C.BG_MAIN)
-        self._xai_notebook.add(tab_shap, text="SHAP")
+        self._xai_notebook.add(tab_shap, text=_("eval_xai_shap"))
 
         shap_controls = tk.Frame(tab_shap, bg=C.BG_MAIN)
         shap_controls.pack(fill="x", padx=12, pady=(12, 0))
-        tk.Label(shap_controls, text="Plot:", font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
+        tk.Label(shap_controls, text=_("eval_lbl_plot"), font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
         self._shap_plot_type = ttk.Combobox(shap_controls, values=["bar", "beeswarm", "waterfall", "force"], state="readonly", width=14)
         self._shap_plot_type.set("bar")
         self._shap_plot_type.pack(side="left", padx=(0, 12))
-        tk.Label(shap_controls, text="Instance:", font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
+        tk.Label(shap_controls, text=_("eval_lbl_inst"), font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
         self._shap_instance = ttk.Spinbox(shap_controls, from_=0, to=999, width=8)
         self._shap_instance.set(0)
         self._shap_instance.pack(side="left", padx=(0, 12))
-        ModernButton(shap_controls, text="Generer SHAP", style="primary", command=self._run_shap, bg=C.BG_MAIN).pack(side="left")
+        ModernButton(shap_controls, text=_("eval_btn_shap"), style="primary", command=self._run_shap, bg=C.BG_MAIN).pack(side="left")
         self._shap_canvas = PlotCanvas(tab_shap)
         self._shap_canvas.pack(fill="both", expand=True, padx=12, pady=12)
 
         # LIME
         tab_lime = tk.Frame(self._xai_notebook, bg=C.BG_MAIN)
-        self._xai_notebook.add(tab_lime, text="LIME")
+        self._xai_notebook.add(tab_lime, text=_("eval_xai_lime"))
 
         lime_controls = tk.Frame(tab_lime, bg=C.BG_MAIN)
         lime_controls.pack(fill="x", padx=12, pady=(12, 0))
-        tk.Label(lime_controls, text="Instance:", font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
+        tk.Label(lime_controls, text=_("eval_lbl_inst"), font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
         self._lime_instance = ttk.Spinbox(lime_controls, from_=0, to=999, width=8)
         self._lime_instance.set(0)
         self._lime_instance.pack(side="left", padx=(0, 12))
-        tk.Label(lime_controls, text="Features:", font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
+        tk.Label(lime_controls, text=_("eval_lbl_feat"), font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
         self._lime_nfeat = ttk.Spinbox(lime_controls, from_=5, to=30, width=6)
         self._lime_nfeat.set(10)
         self._lime_nfeat.pack(side="left", padx=(0, 12))
-        ModernButton(lime_controls, text="Generer LIME", style="primary", command=self._run_lime, bg=C.BG_MAIN).pack(side="left")
+        ModernButton(lime_controls, text=_("eval_btn_lime"), style="primary", command=self._run_lime, bg=C.BG_MAIN).pack(side="left")
         self._lime_canvas = PlotCanvas(tab_lime)
         self._lime_canvas.pack(fill="both", expand=True, padx=12, pady=12)
 
         # PDP
         tab_pdp = tk.Frame(self._xai_notebook, bg=C.BG_MAIN)
-        self._xai_notebook.add(tab_pdp, text="PDP")
+        self._xai_notebook.add(tab_pdp, text=_("eval_xai_pdp"))
 
         pdp_controls = tk.Frame(tab_pdp, bg=C.BG_MAIN)
         pdp_controls.pack(fill="x", padx=12, pady=(12, 0))
-        tk.Label(pdp_controls, text="Type:", font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
+        tk.Label(pdp_controls, text=_("eval_lbl_type"), font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
         self._pdp_type = ttk.Combobox(pdp_controls, values=["1D", "2D"], state="readonly", width=6)
         self._pdp_type.set("1D")
         self._pdp_type.pack(side="left", padx=(0, 12))
         self._pdp_type.bind("<<ComboboxSelected>>", self._on_pdp_type_change)
 
-        tk.Label(pdp_controls, text="Feature 1:", font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
+        tk.Label(pdp_controls, text=_("eval_lbl_feat1"), font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
         self._pdp_feat1 = ttk.Combobox(pdp_controls, state="readonly", width=18)
         self._pdp_feat1.pack(side="left", padx=(0, 12))
 
-        self._pdp_feat2_label = tk.Label(pdp_controls, text="Feature 2:", font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT)
+        self._pdp_feat2_label = tk.Label(pdp_controls, text=_("eval_lbl_feat2"), font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT)
         self._pdp_feat2 = ttk.Combobox(pdp_controls, state="readonly", width=18)
 
-        ModernButton(pdp_controls, text="Generer PDP", style="primary", command=self._run_pdp, bg=C.BG_MAIN).pack(side="left", padx=(12, 0))
+        ModernButton(pdp_controls, text=_("eval_btn_pdp"), style="primary", command=self._run_pdp, bg=C.BG_MAIN).pack(side="left", padx=(12, 0))
         self._pdp_canvas = PlotCanvas(tab_pdp)
         self._pdp_canvas.pack(fill="both", expand=True, padx=12, pady=12)
 
         # Local explanation
         tab_local = tk.Frame(self._xai_notebook, bg=C.BG_MAIN)
-        self._xai_notebook.add(tab_local, text="Explication locale")
+        self._xai_notebook.add(tab_local, text=_("eval_xai_local"))
 
         local_controls = tk.Frame(tab_local, bg=C.BG_MAIN)
         local_controls.pack(fill="x", padx=12, pady=(12, 0))
-        tk.Label(local_controls, text="Instance:", font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
+        tk.Label(local_controls, text=_("eval_lbl_inst"), font=F.BODY, bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
         self._local_instance = ttk.Spinbox(local_controls, from_=0, to=999, width=8)
         self._local_instance.set(0)
         self._local_instance.pack(side="left", padx=(0, 12))
-        ModernButton(local_controls, text="Charger", style="secondary", command=self._load_local_instance, bg=C.BG_MAIN).pack(side="left")
-        ModernButton(local_controls, text="Mettre a jour explication", style="primary", command=self._run_local_explanation, bg=C.BG_MAIN).pack(
+        ModernButton(local_controls, text=_("eval_btn_load_inst"), style="secondary", command=self._load_local_instance, bg=C.BG_MAIN).pack(side="left")
+        ModernButton(local_controls, text=_("eval_btn_update_exp"), style="primary", command=self._run_local_explanation, bg=C.BG_MAIN).pack(
             side="left", padx=(8, 0)
         )
 
-        self._local_pred_label = tk.Label(tab_local, text="Prediction: —", font=F.H4, bg=C.BG_MAIN, fg=C.TEXT)
+        self._local_pred_label = tk.Label(tab_local, text=_("eval_pred_none"), font=F.H4, bg=C.BG_MAIN, fg=C.TEXT)
         self._local_pred_label.pack(anchor="w", padx=12, pady=(10, 6))
 
         self._local_slider_frame = tk.Frame(tab_local, bg=C.BG_MAIN)
@@ -323,7 +324,7 @@ class EvaluationView(ttk.Frame):
         self._registry_table.tree.delete(*self._registry_table.tree.get_children())
 
         for entry in entries:
-            status = "Pret" if entry.X_test is not None else "Incomplet"
+            status = _("eval_status_ready") if entry.X_test is not None else _("eval_status_inc")
             trained_at = entry.trained_at[:19] if entry.trained_at else "—"
             self._registry_table.tree.insert(
                 "",
@@ -348,7 +349,7 @@ class EvaluationView(ttk.Frame):
         if not entry:
             return
         self._active_entry_id = entry_id
-        self._active_name.configure(text=f"Modele actif: {entry.name}")
+        self._active_name.configure(text=_("eval_act_title").format(entry.name))
 
         for w in self._active_badge_wrap.winfo_children():
             w.destroy()
@@ -357,7 +358,7 @@ class EvaluationView(ttk.Frame):
         meta = entry.metadata or {}
         algo = meta.get("algorithm", "—")
         features = meta.get("n_features", "—")
-        self._active_meta.configure(text=f"{algo} · Features: {features} · Source: {entry.source}")
+        self._active_meta.configure(text=_("eval_meta_info").format(algo, features, entry.source))
 
         feat_names = meta.get("feature_names", [])
         self._pdp_feat1["values"] = feat_names
@@ -369,24 +370,24 @@ class EvaluationView(ttk.Frame):
 
     def _load_external_model(self):
         filepath = filedialog.askopenfilename(
-            title="Charger un modele",
+            title=_("eval_file_model"),
             filetypes=[("Model Files", "*.pkl *.joblib"), ("Pickle", "*.pkl"), ("Joblib", "*.joblib")],
         )
         if not filepath:
             return
         try:
             self._controller.register_external_model(filepath)
-            show_info("Succes", "Modele charge avec succes")
+            show_info(_("eval_success_title"), _("eval_msg_loaded"))
             self._refresh_registry()
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("eval_err_title"), str(exc))
 
     def _import_artifacts(self):
         if not self._active_entry_id:
-            show_error("Erreur", "Selectionnez un modele pour importer des artefacts")
+            show_error(_("eval_err_title"), _("eval_err_sel_import"))
             return
         filepath = filedialog.askopenfilename(
-            title="Importer artefacts (.npz)",
+            title=_("eval_file_import"),
             filetypes=[("NumPy NPZ", "*.npz"), ("All Files", "*.*")],
         )
         if not filepath:
@@ -399,10 +400,10 @@ class EvaluationView(ttk.Frame):
             y_pred = data.get("y_pred")
             y_proba = data.get("y_proba")
             self._controller.attach_artifacts(self._active_entry_id, X_test=X_test, y_test=y_test, y_pred=y_pred, y_proba=y_proba)
-            show_info("Succes", "Artefacts importes")
+            show_info(_("eval_success_title"), _("eval_success_import"))
             self._refresh_registry()
         except Exception as exc:
-            show_error("Erreur", str(exc))
+            show_error(_("eval_err_title"), str(exc))
 
     # ------------------------------------------------------------------
     # Evaluation
@@ -410,7 +411,7 @@ class EvaluationView(ttk.Frame):
     def _on_evaluate_selected(self):
         entry_ids = self._selected_entry_ids()
         if not entry_ids:
-            show_error("Erreur", "Selectionnez un ou plusieurs modeles")
+            show_error(_("eval_err_title"), _("eval_err_sel_eval"))
             return
 
         def _compute():
@@ -421,7 +422,7 @@ class EvaluationView(ttk.Frame):
             active_id = self._active_entry_id or entry_ids[0]
             self._render_active(active_id)
             self._render_comparison(entry_ids)
-            show_info("Succes", "Evaluation terminee")
+            show_info(_("eval_success_title"), _("eval_success_eval"))
 
         self._run_async(_compute, _done)
 
@@ -431,7 +432,7 @@ class EvaluationView(ttk.Frame):
             return
         metrics = self._evaluation_cache.get(entry_id) or self._controller.evaluate_models([entry_id]).get(entry_id)
         if not metrics or "error" in metrics:
-            show_error("Erreur", metrics.get("error", "Evaluation invalide"))
+            show_error(_("eval_err_title"), metrics.get("error", _("eval_err_eval_inv")))
             return
 
         self._set_active_entry(entry_id)
@@ -515,12 +516,12 @@ class EvaluationView(ttk.Frame):
 
     def _generate_report(self, fmt: str):
         if not self._active_entry_id:
-            show_error("Erreur", "Aucun modele actif")
+            show_error(_("eval_err_title"), _("eval_err_no_act"))
             return
 
         filetypes = [("HTML", "*.html")] if fmt == "html" else [("PDF", "*.pdf")]
         filepath = filedialog.asksaveasfilename(
-            title="Exporter rapport",
+            title=_("eval_file_export"),
             defaultextension=f".{fmt}",
             filetypes=filetypes,
         )
@@ -531,7 +532,7 @@ class EvaluationView(ttk.Frame):
             return self._controller.generate_report(self._active_entry_id, filepath, fmt=fmt)
 
         def _done(_):
-            show_info("Succes", f"Rapport genere: {filepath}")
+            show_info(_("eval_success_title"), _("eval_success_rep").format(filepath))
 
         self._run_async(_compute, _done)
 
@@ -541,7 +542,7 @@ class EvaluationView(ttk.Frame):
     def _run_fi(self):
         entry_id = self._active_entry_id
         if not entry_id:
-            show_error("Erreur", "Aucun modele actif")
+            show_error(_("eval_err_title"), _("eval_err_no_act"))
             return
 
         def _compute():
@@ -556,7 +557,7 @@ class EvaluationView(ttk.Frame):
     def _run_shap(self):
         entry_id = self._active_entry_id
         if not entry_id:
-            show_error("Erreur", "Aucun modele actif")
+            show_error(_("eval_err_title"), _("eval_err_no_act"))
             return
         plot_type = self._shap_plot_type.get()
         instance_idx = int(self._shap_instance.get())
@@ -572,7 +573,7 @@ class EvaluationView(ttk.Frame):
     def _run_lime(self):
         entry_id = self._active_entry_id
         if not entry_id:
-            show_error("Erreur", "Aucun modele actif")
+            show_error(_("eval_err_title"), _("eval_err_no_act"))
             return
         instance_idx = int(self._lime_instance.get())
         num_features = int(self._lime_nfeat.get())
@@ -596,7 +597,7 @@ class EvaluationView(ttk.Frame):
     def _run_pdp(self):
         entry_id = self._active_entry_id
         if not entry_id:
-            show_error("Erreur", "Aucun modele actif")
+            show_error(_("eval_err_title"), _("eval_err_no_act"))
             return
 
         feat1 = self._pdp_feat1.get()
@@ -604,16 +605,16 @@ class EvaluationView(ttk.Frame):
 
         entry = self._controller.registry.get(entry_id)
         if not entry:
-            show_error("Erreur", "Modele introuvable")
+            show_error(_("eval_err_title"), _("eval_err_not_found"))
             return
         feature_names = entry.metadata.get("feature_names", [])
         if feat1 not in feature_names:
-            show_error("Erreur", "Feature invalide")
+            show_error(_("eval_err_title"), _("eval_err_inv_feat"))
             return
         idx1 = feature_names.index(feat1)
         if feat2:
             if feat2 not in feature_names:
-                show_error("Erreur", "Feature invalide")
+                show_error(_("eval_err_title"), _("eval_err_inv_feat"))
                 return
             idx2 = feature_names.index(feat2)
             feature_idxs = (idx1, idx2)
@@ -633,7 +634,7 @@ class EvaluationView(ttk.Frame):
     def _load_local_instance(self):
         entry = self._controller.registry.get(self._active_entry_id or "")
         if not entry or entry.X_test is None:
-            show_error("Erreur", "X_test indisponible")
+            show_error(_("eval_err_title"), _("eval_err_no_xtest"))
             return
 
         idx = min(int(self._local_instance.get()), len(entry.X_test) - 1)
@@ -693,22 +694,22 @@ class EvaluationView(ttk.Frame):
         if model is None:
             return
         pred = model.predict(self._local_values.reshape(1, -1))
-        text = f"Prediction: {pred[0]}"
+        text = _("eval_pred_val").format(pred[0])
         if hasattr(model, "predict_proba"):
             try:
                 proba = model.predict_proba(self._local_values.reshape(1, -1))
-                text = f"Prediction: {pred[0]} · Proba: {np.max(proba):.3f}"
+                text = _("eval_pred_prob").format(pred[0], np.max(proba))
             except Exception:
                 pass
         self._local_pred_label.configure(text=text)
 
     def _run_local_explanation(self):
         if self._active_entry_id is None or self._local_values is None:
-            show_error("Erreur", "Chargez une instance")
+            show_error(_("eval_err_title"), _("eval_err_load_inst"))
             return
         entry = self._controller.registry.get(self._active_entry_id)
         if not entry:
-            show_error("Erreur", "Modele introuvable")
+            show_error(_("eval_err_title"), _("eval_err_not_found"))
             return
         entry = self._controller.registry.ensure_loaded(entry)
         feature_names = entry.metadata.get("feature_names", [])
@@ -722,6 +723,6 @@ class EvaluationView(ttk.Frame):
             self.after(0, lambda: on_done(result))
 
         def _err(exc):
-            self.after(0, lambda: show_error("Erreur", str(exc)))
+            self.after(0, lambda: show_error(_("eval_err_title"), str(exc)))
 
         self._controller.run_async(fn, _done, _err)

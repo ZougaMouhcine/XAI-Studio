@@ -26,6 +26,7 @@ from ui.views.xai_view import XAIView
 from ui.views.visualization_view import VisualizationView
 from ui.views.fairness_view import FairnessView
 from services.agent_service import AgentService
+from services.i18n import i18n
 from ui.components.agent_settings import load_agent_config
 from utils.logger import set_ui_callback
 from config.settings import APP_NAME, APP_VERSION, WINDOW_WIDTH, WINDOW_HEIGHT, MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT
@@ -54,6 +55,10 @@ class XAIStudioApp:
         min_height = int(MIN_WINDOW_HEIGHT * self._ui_scale)
         self.root.geometry(f"{width}x{height}")
         self.root.minsize(min_width, min_height)
+        try:
+            self.root.state("zoomed")
+        except Exception:
+            pass
         self.root.configure(bg=C.BG_ROOT)
         self._current_view = "data"
         self._main_container = None
@@ -120,7 +125,11 @@ class XAIStudioApp:
         self._agent_panel = None
 
         # ── Top Header ──────────────────────────────────────────
-        self._top_bar = TopBar(self.root, on_toggle_agent=self._toggle_agent_panel)
+        self._top_bar = TopBar(
+            self.root, 
+            on_toggle_agent=self._toggle_agent_panel,
+            on_change_lang=self.change_language,
+        )
         self._top_bar.pack(side="top", fill="x")
         self._top_bar_divider = tk.Frame(self.root, bg=C.HEADER_BORDER, height=1)
         self._top_bar_divider.pack(side="top", fill="x")
@@ -221,9 +230,28 @@ class XAIStudioApp:
             preferred_provider=config.get("preferred_provider", ""),
         )
 
-    def _toggle_agent_panel(self):
+    def change_language(self, lang_code=None):
+        """Toggle or set the application language and rebuild the UI."""
+        if lang_code:
+            i18n.set_language(lang_code)
+        else:
+            i18n.toggle_language()
+        
+        current = self._current_view
+        agent_visible = self._agent_visible
+        
+        self._build_layout()
+        
+        if agent_visible:
+            self._toggle_agent_panel(force_show=True)
+        self._show_view(current)
+
+    def _toggle_agent_panel(self, force_show=False):
         """Show or hide the AI assistant panel."""
-        self._agent_visible = not self._agent_visible
+        if force_show:
+            self._agent_visible = True
+        else:
+            self._agent_visible = not self._agent_visible
         if self._agent_panel:
             if self._agent_visible:
                 self._agent_panel.pack(side="right", fill="y")

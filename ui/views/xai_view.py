@@ -13,6 +13,7 @@ from ui.widgets import C, F, Card, ModernButton, SectionHeader
 from ui.components.plot_canvas import PlotCanvas
 from ui.components.dialogs import show_error, show_info
 from services.pipeline_service import PipelineService
+from services.i18n import _
 
 from utils.logger import get_logger
 
@@ -48,8 +49,8 @@ class XAIView(ttk.Frame):
         header = tk.Frame(ct, bg=C.BG_MAIN)
         header.pack(fill="x", padx=px, pady=(24, 0))
         SectionHeader(
-            header, icon="🔍", title="XAI Tools",
-            subtitle="Expliquez les prédictions avec SHAP, LIME et Feature Importance",
+            header, icon="🔍", title=_("xai_title"),
+            subtitle=_("xai_subtitle"),
         ).pack(side="left")
 
         # ── Notebook (tabs) ─────────────────────────────────
@@ -68,7 +69,7 @@ class XAIView(ttk.Frame):
         controls = tk.Frame(tab, bg=C.BG_MAIN)
         controls.pack(fill="x", padx=16, pady=(12, 0))
 
-        tk.Label(controls, text="Type de plot :", font=F.BODY,
+        tk.Label(controls, text=_("xai_lbl_plot_type"), font=F.BODY,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
 
         self._shap_plot_type = ttk.Combobox(
@@ -78,7 +79,7 @@ class XAIView(ttk.Frame):
         self._shap_plot_type.set("bar")
         self._shap_plot_type.pack(side="left", padx=(0, 12))
 
-        tk.Label(controls, text="Instance :", font=F.BODY,
+        tk.Label(controls, text=_("xai_lbl_inst"), font=F.BODY,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
 
         self._shap_instance = ttk.Spinbox(controls, from_=0, to=999, width=8)
@@ -86,12 +87,12 @@ class XAIView(ttk.Frame):
         self._shap_instance.pack(side="left", padx=(0, 12))
 
         ModernButton(
-            controls, text="Générer SHAP", icon="▶",
+            controls, text=_("xai_btn_shap"), icon="▶",
             style="primary", command=self._run_shap, bg=C.BG_MAIN,
         ).pack(side="left", padx=(8, 0))
 
         ModernButton(
-            controls, text="Exporter PNG", icon="💾",
+            controls, text=_("xai_btn_export"), icon="💾",
             style="secondary", command=lambda: self._shap_canvas.export_png(),
             bg=C.BG_MAIN,
         ).pack(side="right")
@@ -107,14 +108,14 @@ class XAIView(ttk.Frame):
         controls = tk.Frame(tab, bg=C.BG_MAIN)
         controls.pack(fill="x", padx=16, pady=(12, 0))
 
-        tk.Label(controls, text="Instance :", font=F.BODY,
+        tk.Label(controls, text=_("xai_lbl_inst"), font=F.BODY,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
 
         self._lime_instance = ttk.Spinbox(controls, from_=0, to=999, width=8)
         self._lime_instance.set(0)
         self._lime_instance.pack(side="left", padx=(0, 12))
 
-        tk.Label(controls, text="Nb features :", font=F.BODY,
+        tk.Label(controls, text=_("xai_lbl_feat"), font=F.BODY,
                  bg=C.BG_MAIN, fg=C.TEXT).pack(side="left", padx=(0, 8))
 
         self._lime_nfeat = ttk.Spinbox(controls, from_=5, to=30, width=6)
@@ -122,12 +123,12 @@ class XAIView(ttk.Frame):
         self._lime_nfeat.pack(side="left", padx=(0, 12))
 
         ModernButton(
-            controls, text="Générer LIME", icon="▶",
+            controls, text=_("xai_btn_lime"), icon="▶",
             style="primary", command=self._run_lime, bg=C.BG_MAIN,
         ).pack(side="left", padx=(8, 0))
 
         ModernButton(
-            controls, text="Exporter PNG", icon="💾",
+            controls, text=_("xai_btn_export"), icon="💾",
             style="secondary", command=lambda: self._lime_canvas.export_png(),
             bg=C.BG_MAIN,
         ).pack(side="right")
@@ -144,12 +145,12 @@ class XAIView(ttk.Frame):
         controls.pack(fill="x", padx=16, pady=(12, 0))
 
         ModernButton(
-            controls, text="Calculer l'importance", icon="▶",
+            controls, text=_("xai_btn_fi"), icon="▶",
             style="primary", command=self._run_fi, bg=C.BG_MAIN,
         ).pack(side="left")
 
         ModernButton(
-            controls, text="Exporter PNG", icon="💾",
+            controls, text=_("xai_btn_export"), icon="💾",
             style="secondary", command=lambda: self._fi_canvas.export_png(),
             bg=C.BG_MAIN,
         ).pack(side="right")
@@ -162,11 +163,11 @@ class XAIView(ttk.Frame):
         """Return (model, X_test, y_test, feature_names, task_type) or raise."""
         model, meta = self._service.get_active_model()
         if model is None:
-            raise RuntimeError("Aucun modèle disponible. Chargez ou entraînez un modèle d'abord.")
+            raise RuntimeError(_("xai_err_no_model"))
 
         pr = self._service.preprocessing_result
         if pr is None:
-            raise RuntimeError("Données non préprocessées. Exécutez le préprocessing d'abord.")
+            raise RuntimeError(_("xai_err_no_data"))
 
         feature_names = meta.get("feature_names", None) or pr.feature_names
         task_type = meta.get("task_type", None) or pr.task_type
@@ -178,7 +179,7 @@ class XAIView(ttk.Frame):
         try:
             model, X_test, y_test, feature_names, task_type = self._get_model_and_data()
         except RuntimeError as e:
-            show_error("Erreur", str(e))
+            show_error(_("xai_err_title"), str(e))
             return
 
         plot_type = self._shap_plot_type.get()
@@ -211,7 +212,7 @@ class XAIView(ttk.Frame):
             except Exception as exc:
                 logger.error("SHAP error: %s", exc)
                 self._shap_canvas.after(
-                    0, lambda: show_error("Erreur SHAP", str(exc))
+                    0, lambda: show_error(_("xai_err_shap"), str(exc))
                 )
 
         threading.Thread(target=_compute, daemon=True).start()
@@ -221,7 +222,7 @@ class XAIView(ttk.Frame):
         try:
             model, X_test, y_test, feature_names, task_type = self._get_model_and_data()
         except RuntimeError as e:
-            show_error("Erreur", str(e))
+            show_error(_("xai_err_title"), str(e))
             return
 
         instance_idx = int(self._lime_instance.get())
@@ -229,7 +230,7 @@ class XAIView(ttk.Frame):
 
         pr = self._service.preprocessing_result
         if pr is None:
-            show_error("Erreur", "Preprocessing result not available.")
+            show_error(_("xai_err_title"), _("xai_err_no_data"))
             return
 
         def _compute():
@@ -247,13 +248,13 @@ class XAIView(ttk.Frame):
                 )
                 fig = plot_lime_explanation(
                     explanation,
-                    title=f"LIME — Instance {idx}",
+                    title=_("xai_title_lime").format(idx),
                 )
                 self._lime_canvas.after(0, lambda: self._lime_canvas.update_figure(fig))
             except Exception as exc:
                 logger.error("LIME error: %s", exc)
                 self._lime_canvas.after(
-                    0, lambda: show_error("Erreur LIME", str(exc))
+                    0, lambda: show_error(_("xai_err_lime"), str(exc))
                 )
 
         threading.Thread(target=_compute, daemon=True).start()
@@ -263,7 +264,7 @@ class XAIView(ttk.Frame):
         try:
             model, X_test, y_test, feature_names, task_type = self._get_model_and_data()
         except RuntimeError as e:
-            show_error("Erreur", str(e))
+            show_error(_("xai_err_title"), str(e))
             return
 
         def _compute():
@@ -277,13 +278,13 @@ class XAIView(ttk.Frame):
                 )
                 fig = plot_feature_importance(
                     result["importances"], result["feature_names"],
-                    title="Importance des Features",
+                    title=_("xai_title_fi"),
                 )
                 self._fi_canvas.after(0, lambda: self._fi_canvas.update_figure(fig))
             except Exception as exc:
                 logger.error("Feature importance error: %s", exc)
                 self._fi_canvas.after(
-                    0, lambda: show_error("Erreur Feature Importance", str(exc))
+                    0, lambda: show_error(_("xai_err_fi"), str(exc))
                 )
 
         threading.Thread(target=_compute, daemon=True).start()

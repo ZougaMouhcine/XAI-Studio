@@ -11,6 +11,7 @@ from tkinter import ttk, filedialog
 from ui.widgets import C, F, Card, MetricTile, ModernButton, SectionHeader, Badge
 from ui.components.dialogs import show_error, show_info
 from services.pipeline_service import PipelineService
+from services.i18n import _
 
 from utils.logger import get_logger
 
@@ -49,13 +50,13 @@ class UploadView(ttk.Frame):
         SectionHeader(
             header_row,
             icon="📤",
-            title="Upload Modèle",
-            subtitle="Chargez un modèle sauvegardé (.pkl / .joblib) pour l'analyser",
+            title=_("upload_title"),
+            subtitle=_("upload_subtitle"),
         ).pack(side="left")
 
         ModernButton(
             header_row,
-            text="Charger un modèle",
+            text=_("upload_btn"),
             icon="📂",
             style="primary",
             command=self._on_upload,
@@ -76,13 +77,13 @@ class UploadView(ttk.Frame):
         status_text.pack(side="left", fill="x", expand=True)
 
         self._status_name = tk.Label(
-            status_text, text="Aucun modèle chargé",
+            status_text, text=_("upload_no_model"),
             font=F.H4, bg=C.BG_CARD, fg=C.TEXT_SEC,
         )
         self._status_name.pack(anchor="w")
         self._status_detail = tk.Label(
             status_text,
-            text="Utilisez le bouton ci-dessus pour charger un fichier .pkl ou .joblib",
+            text=_("upload_detail"),
             font=F.SMALL, bg=C.BG_CARD, fg=C.TEXT_MUTED,
         )
         self._status_detail.pack(anchor="w")
@@ -92,10 +93,10 @@ class UploadView(ttk.Frame):
         self._metrics_frame.pack(fill="x", padx=px, pady=(16, 0))
 
         placeholders = [
-            ("", "—", "Algorithme", C.ACCENT),
-            ("", "—", "Type de tâche", C.INFO),
-            ("", "—", "Features", C.SUCCESS),
-            ("", "—", "Classe modèle", C.WARNING),
+            ("", "—", _("upload_alg"), C.ACCENT),
+            ("", "—", _("upload_task"), C.INFO),
+            ("", "—", _("upload_feat"), C.SUCCESS),
+            ("", "—", _("upload_class"), C.WARNING),
         ]
         self._tiles = []
         for icon, val, lbl, color in placeholders:
@@ -107,7 +108,7 @@ class UploadView(ttk.Frame):
 
         # ── Parameters card ─────────────────────────────────────
         tk.Label(
-            content, text="Paramètres du modèle", font=F.H2,
+            content, text=_("upload_params"), font=F.H2,
             bg=C.BG_MAIN, fg=C.TEXT,
         ).pack(anchor="w", padx=px, pady=(20, 8))
 
@@ -120,12 +121,12 @@ class UploadView(ttk.Frame):
             insertbackground=C.TEXT, selectbackground=C.TREE_SELECT,
         )
         self._params_text.pack(fill="both", expand=True)
-        self._params_text.insert("1.0", "Les paramètres apparaîtront ici après le chargement d'un modèle.")
+        self._params_text.insert("1.0", _("upload_params_empty"))
         self._params_text.configure(state="disabled")
 
         # ── Feature names card ──────────────────────────────────
         tk.Label(
-            content, text="Features attendues", font=F.H2,
+            content, text=_("upload_feat_exp"), font=F.H2,
             bg=C.BG_MAIN, fg=C.TEXT,
         ).pack(anchor="w", padx=px, pady=(12, 8))
 
@@ -138,13 +139,13 @@ class UploadView(ttk.Frame):
             insertbackground=C.TEXT, selectbackground=C.TREE_SELECT,
         )
         self._features_text.pack(fill="both", expand=True)
-        self._features_text.insert("1.0", "Les noms de features apparaîtront ici.")
+        self._features_text.insert("1.0", _("upload_feat_empty"))
         self._features_text.configure(state="disabled")
 
     # ──────────────────────────────────────────────────────────────
     def _on_upload(self):
         filepath = filedialog.askopenfilename(
-            title="Charger un modèle",
+            title=_("upload_btn"),
             filetypes=[
                 ("Model Files", "*.pkl *.joblib"),
                 ("Pickle", "*.pkl"),
@@ -158,17 +159,17 @@ class UploadView(ttk.Frame):
         try:
             model, metadata = self._service.load_external_model(filepath)
         except Exception as exc:
-            show_error("Erreur de chargement", str(exc))
+            show_error(_("upload_err_title"), str(exc))
             logger.error("Failed to load model: %s", exc)
             return
 
         self._display_model_info(filepath, metadata)
-        show_info("Succès", f"Modèle chargé avec succès :\n{os.path.basename(filepath)}")
+        show_info(_("upload_success_title"), f"{_('upload_success_msg')} :\n{os.path.basename(filepath)}")
 
     def _display_model_info(self, filepath: str, meta: dict):
         name = os.path.basename(filepath)
-        algo = meta.get("algorithm", "Inconnu")
-        task = meta.get("task_type", "Inconnu")
+        algo = meta.get("algorithm", _("upload_unknown"))
+        task = meta.get("task_type", _("upload_unknown"))
         n_feat = meta.get("n_features", "—")
         model_class = meta.get("model_class", "—")
 
@@ -176,7 +177,7 @@ class UploadView(ttk.Frame):
         self._status_name.configure(text=name, fg=C.SUCCESS)
         size_kb = os.path.getsize(filepath) / 1024
         self._status_detail.configure(
-            text=f"Chargé · {size_kb:.1f} KB · {algo}"
+            text=f"{_('upload_loaded')} · {size_kb:.1f} KB · {algo}"
         )
 
         # Metric tiles
@@ -186,7 +187,7 @@ class UploadView(ttk.Frame):
 
         # Parameters
         params = meta.get("params", {})
-        params_str = "\n".join(f"{k} = {v}" for k, v in params.items()) if params else "Aucun paramètre disponible"
+        params_str = "\n".join(f"{k} = {v}" for k, v in params.items()) if params else _("upload_no_params")
         self._params_text.configure(state="normal")
         self._params_text.delete("1.0", "end")
         self._params_text.insert("1.0", params_str)
@@ -197,7 +198,7 @@ class UploadView(ttk.Frame):
         if features:
             feat_str = "\n".join(f"  {i+1}. {f}" for i, f in enumerate(features))
         else:
-            feat_str = "Noms de features non disponibles dans les métadonnées du modèle."
+            feat_str = _("upload_no_feat_names")
         self._features_text.configure(state="normal")
         self._features_text.delete("1.0", "end")
         self._features_text.insert("1.0", feat_str)
