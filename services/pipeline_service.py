@@ -60,6 +60,8 @@ class PipelineService:
         self.dataframe: pd.DataFrame | None = None
         self.data_summary: dict | None = None
         self.filepath: str | None = None
+        self.ignore_first_column: bool = False
+        self.id_column = None
         self.target_columns: list[str] = []
         self.preprocessing_result: PreprocessingResult | None = None
         self.preprocessing_workspace = PreprocessingWorkspace()
@@ -75,10 +77,20 @@ class PipelineService:
     # ------------------------------------------------------------------
     # Step 1: Data Loading
     # ------------------------------------------------------------------
-    def load_data(self, filepath: str, has_header: bool = True) -> pd.DataFrame:
+    def load_data(self, filepath: str, has_header: bool = True, ignore_first_column: bool = False) -> pd.DataFrame:
         """Load a CSV file and compute its summary."""
         self.filepath = filepath
-        self.dataframe = load_tabular(filepath, has_header=has_header)
+        self.ignore_first_column = bool(ignore_first_column)
+        df = load_tabular(filepath, has_header=has_header)
+        if self.ignore_first_column:
+            if df.shape[1] <= 1:
+                raise ValueError("The dataset only contains an ID column and no usable features.")
+            self.id_column = df.columns[0]
+            df = df.drop(columns=[self.id_column])
+        else:
+            self.id_column = None
+
+        self.dataframe = df
         self.data_summary = get_summary(self.dataframe)
         self.target_columns = detect_target_columns(self.dataframe)
         self.preprocessing_workspace.reset(self.dataframe)
