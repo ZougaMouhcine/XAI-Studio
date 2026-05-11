@@ -1,43 +1,73 @@
-# XAI Studio — Phase 1 : Infrastructure & ML Core
+# XAI Studio — ML Core, XAI & Agent
 
-> Plateforme Interactive d'Explicabilité des Modèles IA avec Assistance LLM
+> Plateforme interactive d'explicabilité des modèles IA avec assistance LLM
 
-## 📋 Description
+## Description
 
-XAI Studio est une application desktop Python/Tkinter qui constitue le noyau ML d'une plateforme d'explicabilité IA. Cette Phase 1 couvre :
+XAI Studio est une application desktop Python/Tkinter qui couvre l'ensemble du cycle ML, de la donnée brute à la prédiction, avec des modules d'explicabilité et un agent IA.
 
 - **Chargement de données** CSV avec détection automatique d'encodage
-- **Préprocessing automatique** (imputation, encodage, scaling, split)
-- **Entraînement multi-modèles** (6 classifieurs + 6 régresseurs scikit-learn)
+- **Préprocessing automatique** (imputation, encodage, scaling, split, gestion du schéma)
+- **Entraînement multi-modèles** (6 classifieurs + 6 régresseurs scikit-learn) et suivi d'avancement
 - **Évaluation des performances** avec tableau comparatif
-- **Sauvegarde / chargement** de modèles en `.pkl`
-- **UI professionnelle light-first** avec bascule instantanée vers le mode sombre
+- **Module de prédiction** avec support des catégories et transformations cohérentes
+- **XAI** : SHAP, LIME, PDP et tableaux de bord dédiés
+- **Détection de biais** et vue dédiée à l'équité
+- **Agent IA persistant** avec outils dynamiques et pipeline évolutif
+- **UI professionnelle** light-first avec bascule instantanée sombre
+- **Internationalisation** complète FR/EN
 
-## 🏗 Architecture
+## Captures d'écran
+
+### Données
+![Vue Données](docs/images/data.png)
+
+### Préprocessing
+![Vue Préprocessing](docs/images/preprocessing.png)
+
+### Entraînement
+![Vue Entraînement](docs/images/training.png)
+
+### Évaluation
+![Vue Évaluation](docs/images/evaluation.png)
+
+### Modèles
+![Vue Modèles](docs/images/models.png)
+
+### Prédiction
+![Vue Prédiction](docs/images/prediction.png)
+
+## Architecture
 
 ```
 XAI_Studio/
-├── main.py                    # Point d'entrée
-├── config/settings.py         # Configuration centralisée
-├── core/                      # Logique ML pure
-│   ├── data_loader.py         # Chargement CSV
-│   ├── preprocessing.py       # Pipeline de préprocessing
-│   ├── training.py            # Entraînement multi-modèles
-│   ├── evaluation.py          # Métriques de performance
-│   └── persistence.py         # Sérialisation .pkl
-├── services/
-│   └── pipeline_service.py    # Orchestrateur métier
-├── ui/                        # Interface Tkinter
-│   ├── app.py                 # Fenêtre principale
-│   ├── theme.py               # Thème sombre professionnel
-│   ├── components/            # Composants réutilisables
-│   └── views/                 # 5 écrans (données, preprocessing, etc.)
-├── utils/logger.py            # Logging centralisé
-├── data/samples/              # Datasets d'exemple
-└── models/saved/              # Modèles sérialisés
+├── main.py                      # Point d'entrée
+├── config/                      # Configuration centralisée + langues
+├── core/                        # Logique ML pure
+│   ├── data_loader.py           # Chargement CSV
+│   ├── preprocessing.py         # Pipeline de préprocessing
+│   ├── training.py              # Entraînement multi-modèles
+│   ├── evaluation.py            # Métriques de performance
+│   ├── persistence.py           # Sérialisation .pkl
+│   ├── explainability/          # SHAP, LIME, PDP
+│   └── fairness/                # Détection de biais
+├── services/                    # Orchestration métier et agent
+│   ├── pipeline_service.py
+│   ├── prediction_service.py
+│   ├── evaluation_service.py
+│   ├── xai_service.py
+│   └── agent_service.py
+├── ui/                          # Interface Tkinter
+│   ├── app.py                   # Fenêtre principale
+│   ├── theme.py                 # Thèmes light/dark
+│   ├── components/              # Composants réutilisables
+│   └── views/                   # Écrans (data, preprocessing, training, etc.)
+├── utils/logger.py              # Logging centralisé
+├── data/samples/                # Datasets d'exemple
+└── models/saved/                # Modèles sérialisés
 ```
 
-### Séparation des responsabilités
+### Separation des responsabilités
 
 | Couche | Rôle | Dépendances |
 |--------|------|-------------|
@@ -45,7 +75,7 @@ XAI_Studio/
 | `services/` | Logique métier | → `core/` |
 | `core/` | ML pur | → `config/`, `utils/` |
 
-## 🚀 Installation
+## Installation
 
 ```bash
 # 1. Créer un environnement virtuel
@@ -59,13 +89,13 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## 📦 Dépendances
+## Dépendances
 
 - Python 3.11+
 - pandas, numpy, scikit-learn, joblib
 - Tkinter (inclus avec Python)
 
-## 🔧 Modèles supportés
+## Modèles supportés
 
 ### Classification
 | Modèle | Classe scikit-learn |
@@ -87,22 +117,14 @@ python main.py
 | Decision Tree | `DecisionTreeRegressor` |
 | Gradient Boosting | `GradientBoostingRegressor` |
 
-## 👥 Intégration Équipe
+## Licence
 
-Le code est conçu pour être **réutilisé par les autres membres de l'équipe** :
+Réalisé par:
+- AMLLAL Amine
+- ZOUGA Mouhcine
+- AKEBLI Fatima-Ezzahrae
 
-```python
-from services.pipeline_service import PipelineService
-
-service = PipelineService()
-service.load_data("data.csv")
-service.set_target_column("target")
-result = service.run_preprocessing()
-models = service.run_training()
-metrics = service.run_evaluation()
-service.save_all_trained_models()
-```
-
-## 📄 Licence
+Encadré par:
+- M. Brahim Bakkas
 
 Projet académique — Usage interne.
