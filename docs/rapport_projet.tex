@@ -974,4 +974,453 @@ particuli\`erement convaincant des bonnes pratiques d'ing\'enierie
 logicielle appliqu\'ees \`a un produit de \textit{data science}
 professionnel.
 
+% ─────────────────────────────────────────────────────────────────────
+% CHAPITRE 4 — EXPLICABILITÉ ET XAI : OUTILS AVANCÉS
+% ─────────────────────────────────────────────────────────────────────
+\chapter{Explicabilit\'e et XAI\,---\,outils avanc\'es d'interpr\'etation}
+
+L'explicabilit\'e est au cœur de la proposition de valeur de XAI Studio.
+Au-del\`a d'une simple bo\^ite noire, la plateforme met \`a disposition de
+l'utilisateur une panoplie compl\`ete d'outils d'interpr\'etation
+(SHAP, LIME, PDP, Feature Importance) mat\'erialis\'es dans la couche
+\texttt{core/explainability/} et expos\'es par le \texttt{XAIService}.
+
+\section{Architecture du module explicabilit\'e}
+
+Le module \texttt{core/explainability/} suit une organisation
+module-par-technique~:
+
+\begin{description}[font=\sffamily\bfseries\color{accent}]
+    \item[\texttt{shap\_explainer.py}]
+        Wrapper autour de \textit{SHAP} (SHapley Additive exPlanations).
+        Impl\'emente une s\'election intelligente du \textit{explainer}
+        en fonction du type de mod\`ele (\textit{TreeExplainer} pour
+        XGBoost/Random Forest, \textit{LinearExplainer} pour r\'egressions
+        lin\'eaires, \textit{KernelExplainer} universel en derni\`ere
+        r\'esortie) afin d'optimiser temps d'ex\'ecution et pr\'ecision.
+
+    \item[\texttt{lime\_explainer.py}]
+        Wrapper autour de \textit{LIME} (Local Interpretable Model-agnostic
+        Explanations). Explique les pr\'edictions individuelles en
+        construisant un mod\`ele lin\'eaire local autour du point
+        d'int\'er\^et.
+
+    \item[\texttt{pdp\_explainer.py}]
+        \textit{Partial Dependence Plots}\,---\,visualisation de l'impact
+        marginal d'une (ou deux) variable(s) sur les pr\'edictions du
+        mod\`ele. G\'en\`ere des graphiques 1D (courbes) et 2D (heatmaps).
+
+    \item[\texttt{feature\_importance.py}]
+        Feature importance par permutation ou par l'arbre lui-m\^eme
+        (\texttt{feature\_importances\_}). Tri des variables par ordre
+        d\'ecroissant d'impact sur la performance.
+\end{description}
+
+\section{Explications globales\,---\,SHAP Summary et Feature Importance}
+
+\subsection{SHAP Summary : comprendre l'ensemble du mod\`ele}
+
+Chaque instance $i$ du dataset test g\'en\`ere un vecteur de valeurs SHAP
+$\phi_{i,j}$ pour chaque feature $j$. SHAP (bas\'e sur la th\'eorie
+des jeux et les valeurs de Shapley) attribue \`a chaque feature sa
+contribution \textit{justifiable} \`a la pr\'ediction.
+
+XAI Studio propose deux rendus SHAP globaux~:
+
+\begin{itemize}
+    \item \textbf{Bar plot}\,---\,affiche la moyenne des valeurs SHAP
+        en valeur absolue par feature. Identifie les variables
+        \textbf{les plus influentes globalement}.
+    \item \textbf{Beeswarm plot}\,---\,chaque point repr\'esente une
+        instance ; la position horizontale encodes la contribution
+        (positive ou n\'egative). Combine influence globale et
+        variabilit\'e : permet de d\'etecter si une feature a toujours
+        le m\^eme effet ou si son r\^ole d\'epend du contexte.
+\end{itemize}
+
+L'implémentation détecte automatiquement si le mod\`ele est
+\textit{multiclass}. En ce cas, les valeurs SHAP 3D
+$\phi_{i,j,k}$ (instance, feature, classe) sont moyenn\'ees en valeur
+absolue pour produire une vue synth\'etique.
+
+\subsection{Feature Importance : tri par impact permutation}
+
+Compl\'ementaire \`a SHAP, la feature importance par permutation
+mesure la d\'egradation de la m\'etrique de performance quand on
+m\'elange al\'eatoirement les valeurs d'une colonne. Plus la
+d\'egradation est grande, plus la variable est \og importante \fg{}.
+
+Cette approche est \textbf{model-agnostic}\,---\,elle fonctionne sur
+tout mod\`ele sklearn\,---\,et offre une perspectivité compl\'ementaire
+\`a SHAP : tant\^ot qu'une feature a \textit{une grosse variance d'effet},
+elle peut apparaitre importante en permutation mais pas SHAP.
+
+\section{Explications locales\,---\,LIME et SHAP par instance}
+
+\subsection{LIME\,---\,approximation lin\'eaire locale}
+
+Pour expliquer \textit{une seule} pr\'ediction, LIME procède ainsi~:
+
+\begin{enumerate}
+    \item Gen\'ere des instances \textit{perturbées} autour du point
+        d'intérêt en modifiant ses features de mani\`ere al\'eatoire.
+    \item Calcule les pr\'edictions du mod\`ele pour ces instances.
+    \item Entra\^ine un mod\`ele lin\'eaire \textit{local} (\texttt{Ridge})
+        sur ces donn\'ees perturb\'ees, pond\'er\'ees par leur proximit\'e
+        au point d'int\'er\^et.
+    \item Extrait les poids du mod\`ele lin\'eaire\,---\,ce sont les
+        explications locales.
+\end{enumerate}
+
+L'avantage de LIME sur SHAP en contexte local~: vitesse et
+intuitiv\'ité. Son inconv\'enient~: d\'epend d'un tirage al\'eatoire,
+donc peut varier d'un appel \`a l'autre.
+
+La vue Tkinter (onglet LIME dans \texttt{ui/views/xai\_view.py})
+permet de~:
+\begin{itemize}
+    \item S\'electionner l'instance \`a expliquer (par \textit{spinbox}).
+    \item Ajuster le nombre de features affich\'ees (de 5 \`a 30).
+    \item Exporter le graphique en PNG.
+\end{itemize}
+
+\subsection{SHAP Waterfall et Force : drill-down d'une pr\'ediction}
+
+SHAP propose aussi deux rendu locaux avanc\'es~:
+
+\begin{description}[font=\sffamily\bfseries\color{accent}]
+    \item[Waterfall plot]
+        Visualise la progression de la pr\'ediction depuis la
+        \textit{base value} (valeur moyenne) jusqu'au r\'esultat final.
+        Chaque \'etape ajoute la contribution positive ou n\'egative
+        d'une feature. Facilite la compr\'ehension du \og chemin \fg{}
+        de la pr\'ediction.
+
+    \item[Force plot]
+        Rendu compact : affiche les forces \textit{poussant} le mod\`ele
+        vers la classe positive (en rouge) et celles le ramenant vers
+        la classe n\'egative (en bleu). Vue rapide, id\'eale pour
+        l'exploitation en une seule image.
+\end{description}
+
+\section{Partial Dependence Plots\,---\,impact marginal des variables}
+
+Un PDP est un graphique qui trace l'effet marginal d'une (ou deux)
+variable(s) sur la pr\'ediction moyenne du mod\`ele en tenant les
+autres features \`a leurs valeurs observ\'ees.
+
+\subsection{PDP 1D\,---\,courbe d'impact simple}
+
+Pour une feature $x_j$, on construit une grille $[x_j^{(1)}, \ldots, x_j^{(g)}]$
+puis on calcule~:
+
+\[
+\text{PD}(x_j^{(k)}) = \frac{1}{n}\sum_{i=1}^{n} f(\mathbf{X}_i \text{ avec } x_j \gets x_j^{(k)})
+\]
+
+Le graphique résultant affiche comment la pr\'ediction moyenne varie
+quand $x_j$ change. Utile pour d\'etectrer des relations non-lin\'eaires
+ou des seuils critiques.
+
+\subsection{PDP 2D\,---\,heatmap d'interaction}
+
+Lorsqu'on veut \'etudier l'interaction entre \textit{deux} variables,
+on g\'en\`ere une grille 2D et on trace une heatmap o\`u la couleur
+encodes la pr\'ediction moyenne. Les concentrations de couleur
+r\'ev\`elent des effets d'interaction forts.
+
+\section{Caching et optimisation}
+
+Le \texttt{XAIService} maintient deux caches dict internes~:
+
+\begin{itemize}
+    \item \textbf{\texttt{\_shap\_cache}}\,---\,stocke les objets
+        \texttt{shap.Explanation} pour \'eviter les recomputations.
+        Cl\'e~: \texttt{id(model) + shape(X)}.
+    \item \textbf{\texttt{\_lime\_cache}}\,---\,stocke les explainers
+        LIME d\'ej\`a initialis\'es.
+\end{itemize}
+
+Ces caches neutralisent la latence per\c{c}ue lors de la navigation
+rapide entre onglets d'explication.
+
+\section{Int\'egration UI\,---\,le XAI Panel}
+
+La vue \texttt{ui/views/xai\_view.py} mat\'erialise un onglet
+Tkinter (\texttt{ttk.Notebook}) avec trois sous-onglets~:
+
+\begin{description}[font=\sffamily\bfseries\color{accent}]
+    \item[SHAP]
+        Combobox pour choisir le type (\textit{bar}, \textit{beeswarm},
+        \textit{waterfall}, \textit{force}). \textit{Spinbox} pour
+        l'index d'instance. Bouton \textit{Run} d\'eclenchant le calcul
+        dans un thread. \texttt{PlotCanvas} affichant le r\'esultat.
+
+    \item[LIME]
+        Spinbox pour l'instance, autre spinbox pour le nombre de
+        features. Bouton Run. PlotCanvas.
+
+    \item[Feature Importance]
+        Bouton Run unique. Graphique en barres trié.
+\end{description}
+
+Toutes les opérations (SHAP, LIME, PDP) sont $\textbf{asynchrones}$~:
+ex\'ecut\'ees dans des \texttt{threading.Thread} d\'emon pour ne pas
+bloquer l'UI. Les r\'esultats sont r\'einject\'es via \texttt{root.after()}.
+
+% ─────────────────────────────────────────────────────────────────────
+% CHAPITRE 5 — ÉQUITÉ, TRANSPARENCE ET DÉTECTION DE BIAIS
+% ─────────────────────────────────────────────────────────────────────
+\chapter{\'Equit\'e, transparence et d\'etection de biais}
+
+Un mod\`ele peut \^etre de haute performance globale tout en
+m\'econnaissant syst\'ematiquement certains groupes d\'emographiques
+(femmes, minorit\'es, âges extr\^emes). XAI Studio int\`egre un module
+\textit{fairness} complet pour d\'etectrer et quantifier ces biais.
+
+\section{Module fairness\,---\,architecture}
+
+Le module \texttt{core/fairness/bias\_detector.py} calcule les
+m\'etriques d'\'equit\'e standard~:
+
+\begin{enumerate}
+    \item \textbf{Acc\'es par groupe}\,---\,calcul de l'accuracy
+        (ratio de pr\'edictions correctes) pour chaque valeur d'un
+        attribut sensible (sexe, âge, ethnie).
+    \item \textbf{Parit\'e d\'emographique}\,---\,le taux de pr\'edictions
+        positives doit \^etre similaire dans tous les groupes.
+        M\'etrique~: \textit{Demographic Parity Difference} = max(taux) - min(taux).
+        Seuil d'alerte~: $> 0.1$.
+    \item \textbf{\'Egalit\'e des chances (Equalized Odds)}\,---\,le
+        TPR (True Positive Rate) et le FPR (False Positive Rate)
+        doivent \^etre \'egaux entre groupes.
+    \item \textbf{Disparate Impact Ratio}\,---\,ratio des taux de
+        pr\'edictions positives. Traditionnellement~: 0.8 (80\% rule)
+        est consid\'er\'e comme acceptable en droit du travail.
+\end{enumerate}
+
+\subsection{Métriques par groupe}
+
+Pour chaque groupe $g$ d\'efini par l'attribut sensible~:
+
+\[
+\text{Accuracy}_g = \frac{\#\text{correct}\_g}{n_g}, \quad
+\text{TPR}_g = \frac{\text{TP}_g}{\text{TP}_g + \text{FN}_g}, \quad
+\text{FPR}_g = \frac{\text{FP}_g}{\text{FP}_g + \text{TN}_g}
+\]
+
+\section{Détection d'alertes}
+
+La fonction \texttt{compute\_fairness\_metrics()} retourne un
+dictionnaire incluant un champ \texttt{alerts} (liste d'cha\^ines
+descriptives). Les seuils hard-cod\'es sont~:
+
+\begin{center}
+\rowcolors{2}{light}{white}
+\begin{tabular}{!{\color{accent}\vrule width 2pt}L{4cm} L{2.5cm} L{5.5cm}}
+\arrayrulecolor{rule}\toprule
+\textbf{M\'etrique} & \textbf{Seuil} & \textbf{Description d'alerte} \\
+\midrule
+Disparate Impact & $< 0.8$ ou $> 1.25$ & \og Impact disproportionn\'e d\'etect\'e \fg{} \\
+Demographic Parity & $> 0.1$ & \og Disparit\'e d\'emographique significative \fg{} \\
+Equalized Odds (TPR) & $> 0.1$ & \og TPR in\'egal entre groupes \fg{} \\
+Equalized Odds (FPR) & $> 0.1$ & \og FPR in\'egal entre groupes \fg{} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Chaque alerte est rendue dans la vue avec un badge de couleur
+(rouge = critique, orange = avertissement) pour signal une
+investigation urgente.
+
+\section{Vue Fairness\,---\,tableau de bord interactif}
+
+La \texttt{FairnessView} (\texttt{ui/views/fairness\_view.py})
+offre une interface compl\`ete pour~:
+
+\begin{description}[font=\sffamily\bfseries\color{accent}]
+    \item[Sélection d'attribut sensible]
+        Liste d\'eroulante peuplée dynamiquement par les colonnes du
+        dataset. L'utilisateur choisit l'attribut d\'emographique
+        \`a analyser (ex. \og genre \fg{}, \og groupe d'âge \fg{}).
+
+    \item[Choix de m\'etrique]
+        Combobox parmi~: \textit{accuracy}, \textit{positive\_rate},
+        \textit{tpr}, \textit{fpr}. Le graphique se met \`a jour
+        dynamiquement.
+
+    \item[Affichage des alertes]
+        Banneau (\textit{Alert Box}) listant les biais d\'etect\'es
+        avec codes couleur.
+
+    \item[Tableau de r\'ecapitulatif]
+        \texttt{ttk.Treeview} affichant pour chaque groupe~: nom,
+        taille, accuracy, positive\_rate, TPR, FPR.
+
+    \item[Graphique comparatif]
+        Barre ou courbe compar\'ee entre groupes pour la m\'etrique
+        s\'electionn\'ee. Visualise directement les in\'egalit\'es.
+
+    \item[Export PNG]
+        Bouton pour exporter le graphique.
+\end{description}
+
+\subsection{Calcul asynchrone}
+
+Comme pour XAI, le calcul des m\'etriques de fairness est
+\textit{threaded} pour ne pas bloquer l'interface. Le r\'esultat
+met \`a jour le tableau, les alertes et le graphique via
+\texttt{root.after()}.
+
+\section{Intégration au pipeline et bonnes pratiques}
+
+\subsection{Quand analyser le biais ?}
+
+Le flux recommandé~:
+
+\begin{enumerate}
+    \item \textbf{Post-entraînement}\,---\,une fois les modèles entraînés
+        et la performance globale validée sur l'ensemble de test.
+    \item \textbf{Post-prédiction}\,---\,lors d'une inférence batch sur
+        de nouvelles données, si les groupes démographiques sont
+        disponibles.
+\end{enumerate}
+
+\subsection{Mitigation des biais\,---\,hors champ direct}
+
+XAI Studio ne dispose pas actuellement d'algorithmes de mitigation
+de biais automatiques (ré-pondération d'exemples, post-processing
+de prédictions). Cependant, l'API est conçue pour\,---\,une étape
+future pourrait ajouter~:
+
+\begin{itemize}
+    \item \textit{Reweighting}\,---\,augmenter les exemples du groupe
+        sous-représenté lors du réentraînement.
+    \item \textit{Threshold optimization}\,---\,choisir des seuils de
+        classification distincts par groupe pour égaliser le taux
+        d'acceptation.
+    \item \textit{Post-processing}\,---\,modifier les prédictions finales
+        pour assurer une parité démographique.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────
+% CHAPITRE 6 — VISUALISATION ET TABLEAUX DE BORD D'ÉVALUATION
+% ─────────────────────────────────────────────────────────────────────
+\chapter{Visualisation et tableaux de bord d'\'evaluation}
+
+Au-delà des explications, XAI Studio met l'accent sur la
+\textit{visualisation intégrée} des performances et des artefacts
+ML via matplotlib embarqué dans Tkinter et, secondairement, Plotly
+pour les graphiques interactifs HTML.
+
+\section{Service de visualisation\,---\,architecture}
+
+Le \texttt{VisualizationService} (\texttt{services/visualization\_service.py})
+encapsule la génération de graphiques pour~:
+
+\begin{description}[font=\sffamily\bfseries\color{accent}]
+    \item[Classification]
+        Matrices de confusion, courbes ROC, graphiques de calibration,
+        graphiques de gain.
+    \item[Régression]
+        Graphiques de résidus, graphiques réels vs prédis, histogrammes
+        d'erreurs.
+    \item[XAI]
+        Résumés SHAP (bar, beeswarm), waterfall, force, LIME locaux.
+    \item[Fairness]
+        Graphiques comparatifs de métriques d'équité par groupe.
+\end{description}
+
+Chaque fonction retourne un objet \texttt{PlotPayload} contenant~:
+\begin{itemize}
+    \item \texttt{figure}\,---\,objet matplotlib \texttt{plt.Figure}.
+    \item \texttt{html}\,---\,repreésentation HTML interactive (Plotly)
+        si disponible.
+    \item \texttt{engine}\,---\,string \og matplotlib \fg{} ou \og plotly \fg{}.
+    \item \texttt{title}\,---\,titre du graphique.
+\end{itemize}
+
+\section{Plots de classification}
+
+\subsection{Matrice de confusion}
+
+Visualise la distribution des vraies/fausses positifs/négatifs.
+Rendue sous forme de heatmap avec valeurs numériques incrustées.
+La diagonale (prédictions correctes) idéalement dominant pour un bon
+classifieur.
+
+\textbf{Variantes multiclass}~: le graphique s'adapte automatiquement
+au nombre de classes (taille de la matrice $n \times n$).
+
+\subsection{Courbe ROC (Receiver Operating Characteristic)}
+
+Trace le TPR (sensibilité) en fonction du FPR (1-spécificité) en
+faisant varier le seuil de décision du classificateur. L'aire sous
+la courbe (AUC) mesure la qualité globale~: AUC=0.5 (classifieur
+aléatoire), AUC=1 (classifieur parfait).
+
+XAI Studio affiche la courbe diagnostique et marque la diagonale
+(classifieur aléatoire) en pointillés pour référence.
+
+\section{Plots de régression}
+
+\subsection{Résidus vs prédictions}
+
+Graphique 2D où chaque point représente une observation~:
+abscisse = prédiction, ordonnée = résidu (valeur réelle - prédite).
+Un nuage homogène proche de 0 indique un bon ajustement. Des
+patterns (ex. en V) révèlent une sous-modélisation.
+
+\subsection{Réel vs prédit}
+
+Graphique de dispersion où chaque point est $(y_i^{\text{true}}, y_i^{\text{pred}})$.
+Idéalement, tous les points se concentrent sur la diagonale $y=x$.
+Les écarts reflètent l'erreur de prédiction.
+
+\section{PlotCanvas\,---\,intégration Tkinter}
+
+Le composant \texttt{ui/components/plot\_canvas.py} (\texttt{PlotCanvas})
+encapsule \texttt{matplotlib.backends.backend\_tkagg.FigureCanvasTkAgg}
+pour~:
+
+\begin{description}[font=\sffamily\bfseries\color{accent}]
+    \item[Rendu natif]
+        Affiche un graphique matplotlib dans une hiérarchie Tkinter.
+    \item[Interactions]
+        Pan, zoom, sauvegarde PNG via la barre d'outils matplotlib
+        native.
+    \item[Thèming]
+        Applique automatiquement les couleurs du thème courant
+        (fond, bordures, axes) via \texttt{apply\_plot\_style()}.
+    \item[Redraw]
+        Méthode \texttt{redraw(fig)} pour remplacer le graphique affiché
+        sans recréer le widget.
+\end{description}
+
+\subsection{Export PNG}
+
+Chaque PlotCanvas expose une méthode \texttt{export\_png()}.
+Invoque un \texttt{filedialog.asksaveasfilename()} pour choisir le
+chemin de sauvegarde, puis écrit le graphique via
+\texttt{fig.savefig()}.
+
+\section{Workflow typique d'\'evaluation}
+
+\begin{enumerate}
+    \item \textbf{Entraînement}\,---\,l'utilisateur choisit ses modèles et lance
+        l'entraînement.
+    \item \textbf{Évaluation}\,---\,vue tableau avec performances (accuracy, F1,
+        RMSE, R², etc.). Best model en surbrillance.
+    \item \textbf{Visualisations}\,---\,clic sur un modèle ouvre un panneau
+        latéral affichant confusion matrix, courbe ROC, etc.
+    \item \textbf{XAI}\,---\,l'utilisateur navigue vers l'onglet XAI, choisit
+        le modèle et la visualisation (SHAP, LIME, PDP).
+    \item \textbf{Fairness}\,---\,si données d'attribut sensible dispo,
+        analyse des biais par groupe.
+\end{enumerate}
+
+La progression est \textit{cohérente} : chaque étape enrichit la
+compréhension du modèle, de sa performance à ses explications, puis
+à ses potentiels biais.
+
 \end{document}

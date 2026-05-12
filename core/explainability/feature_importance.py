@@ -72,7 +72,21 @@ def get_feature_importance(model, X_test=None, y_test=None, feature_names=None):
         result = permutation_importance(
             model, X_test, y_test, n_repeats=10, random_state=42, n_jobs=-1,
         )
-        importances = result.importances_mean
+        # Safe extraction with fallback
+        if hasattr(result, 'importances_mean'):
+            importances = result.importances_mean
+        elif hasattr(result, 'importances'):
+            # Fallback: manually compute mean across repeats
+            importances = np.mean(result.importances, axis=0)
+        else:
+            raise ValueError(
+                f"Unexpected permutation importance result type: {type(result)}. "
+                f"Expected 'importances_mean' or 'importances' attribute."
+            )
+        
+        if len(importances) == 0:
+            raise ValueError("Permutation importance produced empty result")
+        
         if feature_names is None:
             feature_names = [f"Feature {i}" for i in range(len(importances))]
         return {"importances": importances, "feature_names": feature_names}

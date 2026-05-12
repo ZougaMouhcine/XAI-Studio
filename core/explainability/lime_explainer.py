@@ -61,11 +61,18 @@ def explain_instance(explainer, model, instance, num_features=10):
     lime.explanation.Explanation
     """
     # Use predict_proba for classifiers, predict for regressors
-    predict_fn = (
-        model.predict_proba
-        if hasattr(model, "predict_proba")
-        else model.predict
-    )
+    # with fallback handling
+    predict_fn = None
+    if hasattr(model, "predict_proba"):
+        try:
+            # Test that predict_proba actually works
+            test_pred = model.predict_proba(instance.reshape(1, -1))
+            predict_fn = model.predict_proba
+        except (ValueError, AttributeError, TypeError):
+            logger.warning("predict_proba exists but failed on test sample, using predict instead")
+    
+    if predict_fn is None:
+        predict_fn = model.predict
 
     explanation = explainer.explain_instance(
         data_row=instance,

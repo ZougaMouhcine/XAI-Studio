@@ -41,10 +41,16 @@ def _get_explainer(model, X_background):
             logger.warning("LinearExplainer failed, falling back.")
 
     # Fallback: KernelExplainer (slow but universal)
-    logger.info("Using SHAP KernelExplainer (fallback) for %s", class_name)
-    # Subsample background for performance
-    if len(X_background) > 100:
-        bg = shap.sample(X_background, 100)
+    logger.warning(
+        "Using SHAP KernelExplainer (slow) for %s with %d features. "
+        "This will be slow. Consider using a tree-based model for faster explanations.",
+        class_name, X_background.shape[1]
+    )
+    
+    # Subsample background more aggressively for performance (max 50)
+    if len(X_background) > 50:
+        bg_idx = np.random.choice(len(X_background), 50, replace=False)
+        bg = X_background[bg_idx]
     else:
         bg = X_background
 
@@ -138,11 +144,21 @@ def plot_shap_waterfall(shap_values, instance_idx=0, feature_names=None):
     apply_plot_style()
 
     sv = shap_values[instance_idx]
-    # Handle multiclass: take class 1
+    # Handle multiclass: select class with highest mean absolute SHAP value
     if sv.values.ndim > 1:
+        # Find the class with highest mean absolute contribution
+        if sv.values.shape[1] > 1:
+            class_idx = np.argmax(np.abs(sv.values).mean(axis=0))
+        else:
+            class_idx = 0
+        
         sv = shap.Explanation(
-            values=sv.values[:, 1] if sv.values.shape[1] > 1 else sv.values[:, 0],
-            base_values=sv.base_values[1] if hasattr(sv.base_values, '__len__') else sv.base_values,
+            values=sv.values[:, class_idx],
+            base_values=(
+                sv.base_values[class_idx]
+                if isinstance(sv.base_values, (list, np.ndarray)) and len(sv.base_values) > class_idx
+                else sv.base_values
+            ),
             data=sv.data,
             feature_names=feature_names,
         )

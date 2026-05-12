@@ -141,6 +141,29 @@ class FairnessView(ttk.Frame):
         if not sensitive_col:
             show_error(_("fair_err_title"), _("fair_err_no_sens"))
             return
+        
+        # Validate not a target column
+        target_cols = self._service.target_columns or []
+        if sensitive_col in target_cols:
+            show_error(
+                _("fair_err_title"),
+                f"Cannot use target column '{sensitive_col}' as sensitive attribute"
+            )
+            return
+        
+        # Block regression (fairness is for classification only)
+        pr = self._service.preprocessing_result
+        if pr is None:
+            show_error(_("fair_err_title"), _("fair_err_no_data"))
+            return
+        
+        if pr.task_type != 'classification':
+            show_error(
+                _("fair_err_title"),
+                f"Fairness analysis only supports classification models. "
+                f"Current task type: '{pr.task_type}'"
+            )
+            return
 
         try:
             model, meta = self._service.get_active_model()
@@ -176,33 +199,8 @@ class FairnessView(ttk.Frame):
                 y_pred = model.predict(pr.X_test)
                 y_true = pr.y_test
 
-                # Get sensitive attribute values for test set
-                # We need to align with the test split indices
-                # Use the original dataframe to get the sensitive column
-                target_col = self._service.target_columns[0] if self._service.target_columns else None
-                X_original = df.drop(columns=self._service.target_columns)
-
-                # Total samples before split
-                total = len(df)
-                test_size = len(pr.X_test)
-                train_size = len(pr.X_train)
-
-                # Reconstruct test indices (same random_state as preprocessing)
-                from sklearn.model_selection import train_test_split
-                indices = np.arange(total)
-
-                # Handle dropped rows from missing target values
-                y_orig = df[target_col]
-                valid_mask = y_orig.notnull()
-                valid_indices = indices[valid_mask]
-
-                from config.settings import DEFAULT_TEST_SIZE, DEFAULT_RANDOM_STATE
-                _, test_indices = train_test_split(
-                    valid_indices, test_size=DEFAULT_TEST_SIZE,
-                    random_state=DEFAULT_RANDOM_STATE,
-                )
-
-                sensitive_values = df[sensitive_col].values[test_indices[:len(y_true)]]
+                # Get sensitive attribute values aligned with test set using service method
+                sensitive_values = self._service.get_test_set_sensitive_values(sensitive_col)
 
                 results = compute_fairness_metrics(y_true, y_pred, sensitive_values)
                 fig = plot_fairness_comparison(results, metric_key)

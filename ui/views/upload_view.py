@@ -158,6 +158,14 @@ class UploadView(ttk.Frame):
 
         try:
             model, metadata = self._service.load_external_model(filepath)
+            
+            # Check compatibility with current preprocessing
+            pr = self._service.preprocessing_result
+            if pr:
+                is_compat, msg = self._service.check_model_compatibility(metadata)
+                if not is_compat:
+                    show_error(_("upload_err_title"), msg)
+                    return
         except Exception as exc:
             show_error(_("upload_err_title"), str(exc))
             logger.error("Failed to load model: %s", exc)

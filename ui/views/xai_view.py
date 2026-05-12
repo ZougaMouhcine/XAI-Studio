@@ -184,6 +184,15 @@ class XAIView(ttk.Frame):
 
         plot_type = self._shap_plot_type.get()
         instance_idx = int(self._shap_instance.get())
+        
+        # Validate instance index
+        max_idx = len(X_test) - 1
+        if instance_idx > max_idx:
+            show_error(
+                _("xai_err_title"),
+                f"Instance index {instance_idx} out of range (0-{max_idx})"
+            )
+            return
 
         def _compute():
             try:
@@ -227,6 +236,15 @@ class XAIView(ttk.Frame):
 
         instance_idx = int(self._lime_instance.get())
         num_features = int(self._lime_nfeat.get())
+        
+        # Validate instance index
+        max_idx = len(X_test) - 1
+        if instance_idx > max_idx:
+            show_error(
+                _("xai_err_title"),
+                f"Instance index {instance_idx} out of range (0-{max_idx})"
+            )
+            return
 
         pr = self._service.preprocessing_result
         if pr is None:

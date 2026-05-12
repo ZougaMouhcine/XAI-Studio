@@ -561,3 +561,84 @@ class PipelineService:
                     return entry["model"], meta
 
         return None, {}
+
+    def get_test_set_sensitive_values(self, sensitive_col: str, random_state: int = 42) -> np.ndarray:
+        """
+        Get sensitive attribute values aligned with test set.
+        
+        Reconstructs the test indices using the same logic as preprocessing
+        to ensure alignment with y_test and y_pred.
+        
+        Parameters
+        ----------
+        sensitive_col : str
+            Column name in the original dataframe
+        random_state : int
+            Must match the random_state used in preprocessing
+        
+        Returns
+        -------
+        np.ndarray
+            Sensitive attribute values for test set (same length as y_test)
+        """
+        if self.dataframe is None:
+            raise RuntimeError("No data loaded")
+        if sensitive_col not in self.dataframe.columns:
+            raise ValueError(f"Column '{sensitive_col}' not found in dataset")
+        if self.preprocessing_result is None:
+            raise RuntimeError("Data not preprocessed yet")
+        
+        df = self.dataframe
+        pr = self.preprocessing_result
+        
+        # Get target column and build valid mask
+        target_col = self.target_columns[0] if self.target_columns else None
+        if target_col and target_col in df.columns:
+            valid_mask = df[target_col].notnull()
+        else:
+            valid_mask = np.ones(len(df), dtype=bool)
+        
+        valid_indices = np.where(valid_mask)[0]
+        
+        # Reconstruct test split using same random state
+        from sklearn.model_selection import train_test_split
+        test_size = len(pr.X_test) / len(valid_indices)
+        _, test_indices = train_test_split(
+            valid_indices,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=df[target_col].values[valid_indices] if target_col and target_col in df.columns else None,
+        )
+        
+        # Get sensitive values aligned with test set
+        sensitive_values = df[sensitive_col].values[test_indices]
+        
+        # Ensure same length as predictions (handle edge cases)
+        sensitive_values = sensitive_values[:len(pr.X_test)]
+        
+        logger.info("Retrieved %d sensitive values for %s", len(sensitive_values), sensitive_col)
+        return sensitive_values
+
+    def check_model_compatibility(self, model_metadata: dict) -> tuple[bool, str]:
+        """Check if loaded model is compatible with current preprocessing."""
+        pr = self.preprocessing_result
+        if pr is None:
+            return False, "No preprocessing result. Run preprocessing first."
+        
+        # Check feature count
+        n_features_model = model_metadata.get("n_features")
+        if n_features_model and n_features_model != pr.X_test.shape[1]:
+            return False, (
+                f"Feature mismatch: model expects {n_features_model} features, "
+                f"but preprocessing produced {pr.X_test.shape[1]}"
+            )
+        
+        # Check task type
+        task_type_model = model_metadata.get("task_type")
+        if task_type_model and task_type_model != pr.task_type:
+            return False, (
+                f"Task type mismatch: model is '{task_type_model}', "
+                f"but data is '{pr.task_type}'"
+            )
+        
+        return True, "Compatible"

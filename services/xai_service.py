@@ -88,7 +88,15 @@ class XAIService:
     def pdp_plot(self, model, X, feature_idxs, feature_names=None):
         if isinstance(feature_idxs, (list, tuple)) and len(feature_idxs) == 2:
             return compute_pdp_2d(model, X, tuple(feature_idxs), feature_names=feature_names)
-        return compute_pdp_1d(model, X, int(feature_idxs), feature_name=feature_names[0] if feature_names else None)
+        else:
+            idx = int(feature_idxs)
+            # Get the correct feature name for the selected index
+            if feature_names and idx < len(feature_names):
+                fname = feature_names[idx]
+            else:
+                fname = f"Feature {idx}"
+            
+            return compute_pdp_1d(model, X, idx, feature_name=fname)
 
     # ------------------------------------------------------------------
     # Local explanation
@@ -130,5 +138,30 @@ class XAIService:
     # ------------------------------------------------------------------
     @staticmethod
     def _cache_key(model, X_data):
-        shape = getattr(X_data, "shape", None)
-        return f"{id(model)}-{shape}"
+        """
+        Generate cache key for SHAP/LIME results.
+        
+        Includes model class name, data shape, AND hash of sample rows
+        to catch data changes while maintaining reasonable performance.
+        """
+        import hashlib
+        
+        # Model identifier
+        model_name = type(model).__name__
+        
+        # Data shape
+        shape_str = str(getattr(X_data, "shape", None))
+        
+        # Hash first and last rows to catch data changes
+        try:
+            X_array = np.asarray(X_data)
+            # Sample a few rows for hashing (front, middle, back)
+            idx_sample = np.linspace(0, len(X_array) - 1, min(3, len(X_array)), dtype=int)
+            sample = X_array[idx_sample]
+            data_hash = hashlib.md5(sample.tobytes()).hexdigest()[:8]
+        except Exception:
+            # If hashing fails, use random component (no cache)
+            import uuid
+            data_hash = str(uuid.uuid4())[:8]
+        
+        return f"{model_name}-{shape_str}-{data_hash}"
