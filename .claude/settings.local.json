@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(pdflatex -interaction=nonstopmode -halt-on-error rapport_projet.tex)",
-      "Bash(dir rapport_projet.pdf)",
-      "Bash(dir /b)"
-    ]
-  }
-}
