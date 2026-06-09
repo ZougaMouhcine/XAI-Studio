@@ -19,8 +19,16 @@ venv/
 models/saved/*.pkl
 catboost_info/
 
+# Ignore svg package build artifacts
+docs/svg-inkscape/
+svg-inkscape/
+
 # Ignore local chat history
 data/chats/*.json
 
 # Ignore local agent configuration (contains API keys)
 config/agent.json
+
+# Ignore local report sources and assets
+docs/images/
+docs/rapport_projet_complet.tex
