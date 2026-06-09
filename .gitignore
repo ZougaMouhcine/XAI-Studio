@@ -29,6 +29,7 @@ data/chats/*.json
 # Ignore local agent configuration (contains API keys)
 config/agent.json
 .claude/
+.github/
 
 # Ignore local report sources and assets
 docs/images/
